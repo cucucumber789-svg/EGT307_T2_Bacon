@@ -26,24 +26,28 @@ By letting AI constantly scan the data, the system switches from being reactive 
 
 The Smart Environmental Monitoring System adopts a microservices architecture to provide scalable, reliable, and maintainable environmental monitoring. The system consists of four main components: a Frontend Dashboard, Backend API, Machine Learning Service, and Database, which communicate through RESTful APIs. This modular design enables independent development, deployment, and scaling of each service.
 
-### Frontend Service
+### Frontend Dashboard
 
-The frontend provides a web-based dashboard that allows users to monitor real-time environmental conditions, view historical sensor data, receive anomaly alerts, and visualize prediction results. User requests are sent to the Backend API through RESTful HTTP communication.
+The Frontend Dashboard provides a user-friendly interface for monitoring environmental conditions. It displays sensor data, anomaly detection results, and historical trends by sending REST API requests to the Backend API. Users can easily view environmental status and receive alerts without directly interacting with the database.
 
 ### Backend API Service
 
-The Backend API acts as the central communication layer of the system. It receives sensor readings, validates incoming data, communicates with the machine learning service, stores information in the database, and returns processed results to the frontend. This service also exposes REST API endpoints for all client requests.
+The Backend API Service acts as the central communication layer between all microservices. It receives requests from the frontend, retrieves and preprocesses the environmental dataset, communicates with the Machine Learning Service for predictions, and stores or retrieves data from the database before returning the results to the user.
 
 ### Machine Learning Service
 
-The Machine Learning Service performs data preprocessing and anomaly detection using the trained machine learning model. Incoming sensor readings are cleaned, transformed, and analysed to determine whether environmental conditions are normal or abnormal. The prediction results are then returned to the Backend API for storage and presentation.
+The Machine Learning Service is responsible for analysing the environmental dataset and detecting abnormal conditions. It loads the trained machine learning model, processes the input data received from the Backend API, performs anomaly prediction, and returns the prediction results for storage and display.
 
 ### Database Service
 
-The database stores sensor readings, prediction results, historical records, and application data. Persistent storage is provided using Kubernetes Volumes to ensure that data remains available even if application Pods are restarted or replaced.
+The Database Service stores the imported environmental monitoring dataset, anomaly prediction results, and historical records. The Backend API retrieves data from the database for preprocessing and machine learning analysis, while prediction results are stored for future reference and visualisation. This provides persistent and centralized data storage, enabling efficient data management and historical analysis
 
 ## Docker Containerization
 
+Each application component is packaged as a Docker container to provide a lightweight, portable, and consistent runtime environment across development, testing, and production. Docker eliminates dependency conflicts and ensures that the application behaves consistently regardless of the deployment platform.
+
 ## Kubernates Deployment
+
+The containers are orchestrated using Kubernetes, which automates deployment, scaling, load balancing, and recovery of application services. Kubernetes continuously monitors the desired state of the system and automatically replaces failed Pods, ensuring high availability and fault tolerance. The orchestration platform also enables the application to scale horizontally by creating additional Pods when system workload increases.
 
 ## Issues and Limitations
