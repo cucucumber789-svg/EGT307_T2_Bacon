@@ -14,6 +14,10 @@ Many environmental monitoring systems only display sensor readings without provi
 
 ## Relevance of the problem towards the real world
 
+In the real world, catching an environmental issue early is a race against the clock. If a cooling system fails in a data center, millions of dollars of hardware can overheat and melt in minutes. If a gas sensor spikes in a chemical plant, you have a massive safety hazard on your hands. Expecting a human operator to sit there, stare at thousands of raw data points on a screen, and spot these tiny anomalies before it's too late just isn't realistic. People get tired, overwhelmed, and inevitably miss things.
+
+By letting AI constantly scan the data, the system switches from being reactive to predictive. Instead of sounding an alarm after everything goes wrong, the AI catches subtle patterns early, giving teams a heads-up hours before a breakdown even happens. On top of that, using Docker and Kubernetes fixes a major engineering headache: scalability. A system might start with fifty sensors and quickly grow to thousands. This architecture ensures the platform handles the massive data load smoothly, whether it's running in a single building or across an entire smart city.
+
 ## Objectives
 
 ## Data Source
