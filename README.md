@@ -20,6 +20,20 @@ By letting AI constantly scan the data, the system switches from being reactive 
 
 ## Objectives
 
+1. Automated Analysis: Use machine learning to interpret sensor data instead of relying solely on raw readings
+
+2. Early Detection: Identify abnormal environmental conditions (e.g., pollution spikes, temperature anomalies) before they escalate.
+
+## Intended Benefits
+
+1. Reduced Manual Monitoring: Eliminates the need for users to constantly track large datasets.
+2. Timely Responses: Early warnings help prevent environmental hazards or mitigate their impact.
+3. Scalability & Reliability: Kubernetes ensures the system can handle growing sensor networks and data streams.
+4. Improved Accuracy: AI models can detect subtle anomalies that humans might miss.
+5. Cross-Domain Applications: Supports monitoring of air quality, water pollution, biodiversity, and climate hazards.
+6. Operational Efficiency: Microservices allow faster updates, easier maintenance, and resilience against failures.
+7. Public Accountability: Provides transparent, scientifically valid insights for policymakers and communities.
+
 ## Data Source
 
 ## System Architecture
