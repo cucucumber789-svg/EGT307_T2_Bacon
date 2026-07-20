@@ -1,10 +1,13 @@
 # EGT307_T2_BACON
 
-## Members 
+## Task Assignment
 
-- Wei Guan - 
-- Shun Wei - 
-- Derek - 
+| Name       | Task         | Microservice     |
+|------------|--------------|------------------|
+| Wei Guan   | (TBD)        | (TBD)            |
+| Shun Wei   | (TBD)        | (TBD)            |
+| Derek      | (TBD)        | (TBD)            |
+| Louis      | (TBD)        | (TBD)            |
 
 ## Project Overview
 
