@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-api
+  labels:
+    app: backend-api
+spec:
+  type: ClusterIP
+  selector:
+    app: backend-api
+  ports:
+    - port: 80
+      targetPort: 5000
+      protocol: TCP
+  # TODO: Change to NodePort or LoadBalancer if external access needed

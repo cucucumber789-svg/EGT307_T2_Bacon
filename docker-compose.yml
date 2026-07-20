@@ -1,0 +1,35 @@
+# Local development environment
+# Intention: Run all microservices together with a single command
+# Usage: docker-compose up --build
+
+services:
+  backend-api:
+    build: ./backend-api
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@database:5432/env_monitor
+      - ML_SERVICE_URL=http://ml-service:5001
+    depends_on:
+      - database
+
+  database:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=env_monitor
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # ml-service:
+  #   build: ./ml-service
+  #   ports:
+  #     - "5001:5001"
+
+  # frontend:
+  #   build: ./frontend
+  #   ports:
+  #     - "3000:3000"
