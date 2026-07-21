@@ -2,12 +2,12 @@
 
 ## Task Assignment
 
-| Name       | Task         | Microservice     |
-|------------|--------------|------------------|
-| Wei Guan   | (TBD)        | (TBD)            |
-| Shun Wei   | (TBD)        | (TBD)            |
-| Derek      | (TBD)        | (TBD)            |
-| Louis      | (TBD)        | (TBD)            |
+| Name       | Task                                                 | Microservice             |
+|------------|------------------------------------------------------|--------------------------|
+| Wei Guan   | Notification Service, Frontend Dashboard             | notification-service     |
+| Shun Wei   | Backend API, Docker & Kubernetes, Project Setup      | backend-api              |
+| Derek      | Data Ingestion Service, Database Setup               | data-ingestion-service   |
+| Louis      | ML Service                                           | ml-service               |
 
 ## Project Overview
 
