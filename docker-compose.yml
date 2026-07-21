@@ -10,8 +10,26 @@ services:
     environment:
       - DATABASE_URL=postgresql://user:password@database:5432/env_monitor
       - ML_SERVICE_URL=http://ml-service:5001
+      - NOTIFICATION_SERVICE_URL=http://notification-service:5002
+      - DATA_INGESTION_SERVICE_URL=http://data-ingestion-service:5003
     depends_on:
       - database
+
+  notification-service:
+    build: ./notification-service
+    ports:
+      - "5002:5002"
+    environment:
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - ALERT_THRESHOLD=0.8
+
+  data-ingestion-service:
+    build: ./data-ingestion-service
+    ports:
+      - "5003:5003"
+    environment:
+      - BACKEND_API_URL=http://backend-api:5000
 
   database:
     image: postgres:16-alpine

@@ -22,14 +22,22 @@ by **Docker** and **Kubernetes**.
 │   Backend API       │◄──────►│   ML Service        │
 │   (Flask + PySpark) │        │   (TBD)             │
 └────────┬────────────┘        └─────────────────────┘
-         │ SQL
-         ▼
-┌─────────────────────┐
-│   PostgreSQL DB     │
-└─────────────────────┘
+         │
+    ┌────┴────────────────────┐
+    ▼                         ▼
+┌──────────────────┐   ┌──────────────────┐
+│Data Ingestion    │   │ Notification     │
+│   Service        │   │   Service        │
+│(CSV/JSON intake) │   │ (email/SMS)      │
+└──────────────────┘   └──────────────────┘
+         │                         ▲
+         ▼                         │
+┌──────────────────┐               │
+│  PostgreSQL DB   │◄──────────────┘
+└──────────────────┘
 ```
 
-All four microservices are containerised with Docker and deployed via Kubernetes.
+All components are containerised with Docker and deployed via Kubernetes.
 
 ---
 
@@ -69,6 +77,34 @@ EGT307_T2_Bacon/
 │
 ├── ml-service/                   # ML SERVICE — TBD
 │
+├── notification-service/         # NOTIFICATION SERVICE — alerts (email/SMS)
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── main.py              # Flask app entry point
+│   │   ├── config.py            # SMTP and alert configuration
+│   │   ├── routers/
+│   │   │   ├── __init__.py
+│   │   │   └── notification.py  # Alert endpoints
+│   │   └── services/
+│   │       ├── __init__.py
+│   │       └── alert_service.py # Email/SMS sending logic
+│   ├── Dockerfile
+│   └── requirements.txt
+│
+├── data-ingestion-service/       # DATA INGESTION SERVICE — sensor data intake
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── main.py              # Flask app entry point
+│   │   ├── config.py            # Backend API URL configuration
+│   │   ├── routers/
+│   │   │   ├── __init__.py
+│   │   │   └── ingestion.py     # Data intake endpoints
+│   │   └── services/
+│   │       ├── __init__.py
+│   │       └── data_loader.py   # CSV/JSON parsing logic
+│   ├── Dockerfile
+│   └── requirements.txt
+│
 ├── frontend/                     # FRONTEND — TBD
 │
 ├── database/                     # DATABASE — PostgreSQL init
@@ -80,6 +116,14 @@ EGT307_T2_Bacon/
     │   ├── service.yaml
     │   └── configmap.yaml
     ├── ml-service/
+    ├── notification-service/
+    │   ├── deployment.yaml
+    │   ├── service.yaml
+    │   └── configmap.yaml
+    ├── data-ingestion-service/
+    │   ├── deployment.yaml
+    │   ├── service.yaml
+    │   └── configmap.yaml
     ├── database/
     └── frontend/
 ```
@@ -148,6 +192,18 @@ routers/prediction.py  (handles prediction requests)
 | `docker-compose.yml` | Defines all services (backend, database) and how they run together locally. One command starts everything. |
 | `database/init.sql` | SQL script that runs when PostgreSQL starts. Creates tables and seeds initial data. |
 | `k8s/*.yaml` | Kubernetes deployment manifests. Define how each microservice is deployed, exposed, and configured in a cluster. |
+| `notification-service/app/main.py` | Flask app entry point for Notification Service. Registers alert blueprints. |
+| `notification-service/app/config.py` | Stores SMTP email settings and alert configuration loaded from environment variables. |
+| `notification-service/app/routers/notification.py` | Defines Flask Blueprint with alert endpoints (`POST /api/notify`). Called by Backend API when anomalies detected. |
+| `notification-service/app/services/alert_service.py` | Handles sending email/SMS alerts. Includes retry logic for failed sends. |
+| `notification-service/Dockerfile` | Container definition for Notification Service. |
+| `notification-service/requirements.txt` | Python dependencies for Notification Service (Flask, requests). |
+| `data-ingestion-service/app/main.py` | Flask app entry point for Data Ingestion Service. Registers ingestion blueprints. |
+| `data-ingestion-service/app/config.py` | Stores Backend API URL and allowed file formats loaded from environment variables. |
+| `data-ingestion-service/app/routers/ingestion.py` | Defines Flask Blueprint with data intake endpoints (`POST /api/ingest`). Accepts CSV/JSON sensor data. |
+| `data-ingestion-service/app/services/data_loader.py` | Handles parsing CSV files and JSON payloads into structured records before forwarding to Backend API. |
+| `data-ingestion-service/Dockerfile` | Container definition for Data Ingestion Service. |
+| `data-ingestion-service/requirements.txt` | Python dependencies for Data Ingestion Service (Flask, requests, pandas). |
 
 ### Key Concept: Blueprints
 
@@ -192,12 +248,27 @@ This keeps routes organised by feature instead of having everything in one file.
 
 ## Microservice Communication
 
-| From              | To                | Protocol  | Purpose                          |
-|-------------------|-------------------|-----------|----------------------------------|
-| Frontend          | Backend API       | REST/HTTP | User requests, data display      |
-| Backend API       | PostgreSQL        | SQL       | Data persistence & retrieval     |
-| Backend API       | ML Service        | REST/HTTP | Anomaly prediction requests      |
-| ML Service        | Backend API       | REST/HTTP | Prediction results returned      |
+| From                | To                | Protocol  | Purpose                          |
+|---------------------|-------------------|-----------|----------------------------------|
+| Frontend            | Backend API       | REST/HTTP | User requests, data display      |
+| Data Ingestion      | Backend API       | REST/HTTP | Send sensor data for processing  |
+| Backend API         | PostgreSQL        | SQL       | Data persistence & retrieval     |
+| Backend API         | ML Service        | REST/HTTP | Anomaly prediction requests      |
+| ML Service          | Backend API       | REST/HTTP | Prediction results returned      |
+| Backend API         | Notification Service | REST/HTTP | Trigger alerts on anomalies   |
+
+---
+
+## Port Assignments
+
+| Service                | Port | Notes                              |
+|------------------------|------|------------------------------------|
+| Backend API            | 5000 | Flask default, central API layer   |
+| ML Service             | 5001 | Anomaly detection (TBD)            |
+| Notification Service   | 5002 | Alert processing (email/SMS)       |
+| Data Ingestion Service | 5003 | CSV/JSON sensor data intake        |
+| PostgreSQL             | 5432 | Database                           |
+| Frontend               | 3000 | Dashboard UI (TBD)                 |
 
 ---
 

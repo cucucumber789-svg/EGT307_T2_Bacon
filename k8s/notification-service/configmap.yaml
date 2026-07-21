@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notification-service-config
+data:
+  SMTP_HOST: "smtp.gmail.com"
+  SMTP_PORT: "587"
+  ALERT_THRESHOLD: "0.8"
+  # TODO: Add actual SMTP credentials via Secrets, not ConfigMap

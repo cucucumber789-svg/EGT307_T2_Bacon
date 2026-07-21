@@ -1,0 +1,3 @@
+"""
+Notification routes package.
+"""

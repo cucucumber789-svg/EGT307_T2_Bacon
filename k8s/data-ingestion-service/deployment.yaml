@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-ingestion-service
+  labels:
+    app: data-ingestion-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-ingestion-service
+  template:
+    metadata:
+      labels:
+        app: data-ingestion-service
+    spec:
+      containers:
+        - name: data-ingestion-service
+          image: data-ingestion-service:latest
+          ports:
+            - containerPort: 5003
+          envFrom:
+            - configMapRef:
+                name: data-ingestion-service-config
+          # TODO: Add resource limits, readiness/liveness probes
