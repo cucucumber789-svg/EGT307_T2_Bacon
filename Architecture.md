@@ -101,14 +101,15 @@ EGT307_T2_Bacon/
 │   │   │   └── ingestion.py     # Data intake endpoints
 │   │   └── services/
 │   │       ├── __init__.py
-│   │       └── data_loader.py   # CSV/JSON parsing logic
+│   │       └── data_ingestion.py   # CSV parsing, cleaning, and forwarding
 │   ├── Dockerfile
 │   └── requirements.txt
 │
 ├── frontend/                     # FRONTEND — TBD
 │
-├── database/                     # DATABASE — PostgreSQL init
-│   └── init.sql
+├── database/                     # DATABASE — PostgreSQL init + sensor data
+│   ├── init.sql
+│   └── sensor_data.example.csv   # Raw sensor data (ground truth)
 │
 └── k8s/                          # KUBERNETES — deployment manifests
     ├── backend-api/
@@ -201,7 +202,7 @@ routers/prediction.py  (handles prediction requests)
 | `data-ingestion-service/app/main.py` | Flask app entry point for Data Ingestion Service. Registers ingestion blueprints. |
 | `data-ingestion-service/app/config.py` | Stores Backend API URL and allowed file formats loaded from environment variables. |
 | `data-ingestion-service/app/routers/ingestion.py` | Defines Flask Blueprint with data intake endpoints (`POST /api/ingest`). Accepts CSV/JSON sensor data. |
-| `data-ingestion-service/app/services/data_loader.py` | Handles parsing CSV files and JSON payloads into structured records before forwarding to Backend API. |
+| `data-ingestion-service/app/services/data_ingestion.py` | Parses raw CSV sensor data (drop columns, rename, coerce types, drop NaN), saves cleaned output locally, and forwards records to Backend API. |
 | `data-ingestion-service/Dockerfile` | Container definition for Data Ingestion Service. |
 | `data-ingestion-service/requirements.txt` | Python dependencies for Data Ingestion Service (Flask, requests, pandas). |
 
@@ -246,6 +247,42 @@ This keeps routes organised by feature instead of having everything in one file.
 
 ---
 
+## Key Development Decisions
+
+### Data Pipeline
+- **Raw data as `.example.csv`** — Committed file is ground truth; cleaned output is
+  git-ignored since it evolves with the cleaning process
+- **Cleaning logic kept simple** — Wrapped in functions but kept minimal to avoid
+  over-engineering; same code runs locally and in Docker
+- **Ingestion service cleans and forwards** — Cleaning happens in the ingestion
+  service, not in SQL; keeps data flow consistent with microservice architecture
+- **Ingestion creates `sensor_data_cleaned.csv`** — Only exists after running the
+  ingestion service; not committed to the repo
+
+### Database
+- **`init.sql` creates table only, no seeding** — Ingestion service handles data
+  flow; DB schema stays clean and independent of data volume
+- **SQLAlchemy ORM** — Decouples app logic from raw SQL; models serve as single
+  source of truth for table schema
+
+### Local Development vs Docker
+The `database/` folder is the single source of data for both environments.
+Docker's volume mount (`./database:/data`) maps the host folder to the
+container, so both environments read and write to the same files.
+
+- **Local:** `Config.DATA_DIR` defaults to `../database` (relative path)
+- **Docker:** `DATA_DIR=/data` env var overrides the default; volume mount
+  makes `/data` equivalent to `./database/` on the host
+
+This means cleaned output appears in `database/` regardless of how you run
+the service. No duplication, no sync issues.
+
+### Docker & Deployment
+- **`depends_on` for startup order** — Database → Backend API → Ingestion
+  service ensures services connect in the right sequence
+
+---
+
 ## Microservice Communication
 
 | From                | To                | Protocol  | Purpose                          |
@@ -284,6 +321,28 @@ This keeps routes organised by feature instead of having everything in one file.
 - ConfigMaps for environment configuration
 - Services for internal DNS-based inter-service communication
 - Deployments with replica counts for scalability
+
+### Local Development (Standalone Mode)
+
+Services can be run individually for development and testing without
+starting the full Docker Compose stack. Each service module includes an
+`if __name__ == "__main__"` entry point for standalone execution.
+
+**Data Ingestion (standalone):**
+```bash
+cd data-ingestion-service
+python -m app.services.data_ingestion
+```
+
+This reads `sensor_data.example.csv`, cleans it, and saves
+`sensor_data_cleaned.csv` to the `database/` folder. No Flask server
+or backend API required — useful for testing the cleaning pipeline
+independently.
+
+**Key design principle:** Services are built as importable modules first,
+standalone scripts second. The `if __name__` block is minimal (calls the
+same functions the Flask router uses), ensuring local and Docker behaviour
+stay consistent.
 
 ---
 

@@ -5,7 +5,7 @@
 | Name       | Task                                                 | Microservice             |
 |------------|------------------------------------------------------|--------------------------|
 | Wei Guan   | Notification Service, Frontend Dashboard             | notification-service     |
-| Shun Wei   | Backend API, Docker & Kubernetes, Project Setup      | backend-api              |
+| Shun Wei   | Backend API, Docker & Kubernetes, System Architecture, Data Pipeline Integration | backend-api |
 | Derek      | Data Ingestion Service, Database Setup               | data-ingestion-service   |
 | Louis      | ML Service                                           | ml-service               |
 
