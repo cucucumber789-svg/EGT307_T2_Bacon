@@ -1,10 +1,7 @@
-"""
-Application configuration loaded from environment variables.
+import os
 
-Intention:
-- Centralise all config (DB URL, ML service URL, Spark settings)
-- Use python-dotenv or os.environ for env-based configuration
-- Provide a single Config class for Flask and services to import
-"""
 
-# TODO: Define Config class with DATABASE_URL, ML_SERVICE_URL, etc.
+class Config:
+    DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://user:password@localhost:5432/env_monitor")
+    ML_SERVICE_URL = os.environ.get("ML_SERVICE_URL", "http://localhost:5001")
+    NOTIFICATION_SERVICE_URL = os.environ.get("NOTIFICATION_SERVICE_URL", "http://localhost:5002")

@@ -1,10 +1,16 @@
-"""
-Database connection and session management.
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
 
-Intention:
-- Create SQLAlchemy engine from DATABASE_URL
-- Define session factory for request-scoped DB access
-- Export Base for model inheritance
-"""
+from app.config import Config
 
-# TODO: Create engine, sessionmaker, and declarative Base
+engine = create_engine(Config.DATABASE_URL)
+SessionLocal = sessionmaker(bind=engine)
+Base = declarative_base()
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

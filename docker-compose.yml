@@ -30,6 +30,12 @@ services:
       - "5003:5003"
     environment:
       - BACKEND_API_URL=http://backend-api:5000
+      - DATA_DIR=/data
+    volumes:
+      - ./database:/data
+    depends_on:
+      - database
+      - backend-api
 
   database:
     image: postgres:16-alpine

@@ -1,10 +1,14 @@
-"""
-Sensor reading database model.
+from sqlalchemy import Column, Integer, Numeric, DateTime
 
-Intention:
-- Define SQLAlchemy model for environmental sensor data
-- Fields: id, sensor_name, reading_value, unit, timestamp, location
-- Serve as the table schema for PostgreSQL
-"""
+from app.database import Base
 
-# TODO: Define Sensor model class inheriting from Base
+
+class SensorReading(Base):
+    __tablename__ = "sensor_readings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    entry_id = Column(Integer, nullable=False)
+    temperature = Column(Numeric, nullable=False)
+    humidity = Column(Numeric, nullable=False)
+    air_quality = Column(Integer, nullable=False)

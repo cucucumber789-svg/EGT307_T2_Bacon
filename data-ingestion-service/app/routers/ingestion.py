@@ -1,11 +1,12 @@
-"""
-Data ingestion routes blueprint.
+from flask import Blueprint, jsonify
+from app.services.data_ingestion import parse_csv, save_local, forward_to_backend
 
-Intention:
-- Handle sensor data intake from various sources
-- Routes: POST /api/ingest (single), POST /api/ingest/batch (bulk)
-- Accept CSV uploads or JSON payloads
-- Forward parsed data to Backend API for processing
-"""
+ingestion_bp = Blueprint("ingestion", __name__)
 
-# TODO: Create Blueprint, define ingestion routes
+
+@ingestion_bp.route("/ingest/file", methods=["POST"])
+def ingest_raw_file():
+    df = parse_csv()
+    save_local(df)
+    result = forward_to_backend(df)
+    return jsonify({"rows": len(df), **result}), 201

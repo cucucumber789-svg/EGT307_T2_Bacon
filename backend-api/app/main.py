@@ -1,11 +1,23 @@
-"""
-Flask application entry point.
+from flask import Flask, jsonify
 
-Intention:
-- Initialise and configure the Flask app
-- Register blueprints (routers) for sensors and predictions
-- Provide a health-check endpoint at GET /
-- Handle CORS configuration for frontend communication
-"""
+from app.database import engine, Base
+from app.routers.sensor import sensor_bp
 
-# TODO: Import Flask, register blueprints, add health-check route
+
+def create_app():
+    app = Flask(__name__)
+
+    Base.metadata.create_all(bind=engine)
+
+    app.register_blueprint(sensor_bp, url_prefix="/api")
+
+    @app.route("/")
+    def health():
+        return jsonify({"status": "ok", "service": "backend-api"})
+
+    return app
+
+
+if __name__ == "__main__":
+    app = create_app()
+    app.run(host="0.0.0.0", port=5000)

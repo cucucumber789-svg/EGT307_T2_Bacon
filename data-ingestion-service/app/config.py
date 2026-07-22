@@ -1,10 +1,7 @@
-"""
-Application configuration for Data Ingestion Service.
+import os
 
-Intention:
-- Store Backend API URL for forwarding data
-- Store allowed file formats (CSV, JSON)
-- Load all config from environment variables
-"""
 
-# TODO: Define Config class with BACKEND_API_URL, ALLOWED_FORMATS, etc.
+class Config:
+    BACKEND_API_URL = os.environ.get("BACKEND_API_URL", "http://localhost:5000")
+    DATA_DIR = os.environ.get("DATA_DIR", "../database")
+    ALLOWED_FORMATS = os.environ.get("ALLOWED_FORMATS", "csv,json").split(",")
