@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ml-service-config
+data:
+  MODEL_PATH: "/app/models/trained_model"
+  # MODEL_FORMAT: TBD (e.g., pkl, h5, pt, onnx)
+  # ML_FRAMEWORK: TBD (e.g., scikit-learn, tensorflow, torch)

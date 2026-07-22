@@ -75,7 +75,19 @@ EGT307_T2_Bacon/
 │   ├── Dockerfile
 │   └── requirements.txt
 │
-├── ml-service/                   # ML SERVICE — TBD
+├── ml-service/                   # ML SERVICE — anomaly detection (TBD)
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── main.py              # Flask app entry point
+│   │   ├── config.py            # Model path and ML settings (TBD)
+│   │   ├── routers/
+│   │   │   ├── __init__.py
+│   │   │   └── prediction.py    # Prediction endpoints
+│   │   └── services/
+│   │       ├── __init__.py
+│   │       └── model_service.py # ML model loading and prediction (TBD)
+│   ├── Dockerfile
+│   └── requirements.txt
 │
 ├── notification-service/         # NOTIFICATION SERVICE — alerts (email/SMS)
 │   ├── app/
@@ -117,6 +129,9 @@ EGT307_T2_Bacon/
     │   ├── service.yaml
     │   └── configmap.yaml
     ├── ml-service/
+    │   ├── deployment.yaml
+    │   ├── service.yaml
+    │   └── configmap.yaml
     ├── notification-service/
     │   ├── deployment.yaml
     │   ├── service.yaml
@@ -205,6 +220,12 @@ routers/prediction.py  (handles prediction requests)
 | `data-ingestion-service/app/services/data_ingestion.py` | Parses raw CSV sensor data (drop columns, rename, coerce types, drop NaN), saves cleaned output locally, and forwards records to Backend API. |
 | `data-ingestion-service/Dockerfile` | Container definition for Data Ingestion Service. |
 | `data-ingestion-service/requirements.txt` | Python dependencies for Data Ingestion Service (Flask, requests, pandas). |
+| `ml-service/app/main.py` | Flask app entry point for ML Service. Registers prediction blueprints. |
+| `ml-service/app/config.py` | Stores model path and ML framework settings (TBD). Loaded from environment variables. |
+| `ml-service/app/routers/prediction.py` | Defines Flask Blueprint with prediction endpoints (`POST /api/predict`). Receives sensor data and returns anomaly predictions. |
+| `ml-service/app/services/model_service.py` | Loads trained ML model, preprocesses input data, and runs predictions. Framework and format TBD. |
+| `ml-service/Dockerfile` | Container definition for ML Service. |
+| `ml-service/requirements.txt` | Python dependencies for ML Service (Flask + ML framework TBD). |
 
 ### Key Concept: Blueprints
 

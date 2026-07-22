@@ -48,10 +48,13 @@ services:
     volumes:
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  # ml-service:
-  #   build: ./ml-service
-  #   ports:
-  #     - "5001:5001"
+  ml-service:
+    build: ./ml-service
+    ports:
+      - "5001:5001"
+    environment:
+      - MODEL_PATH=/app/models/trained_model
+      # MODEL_FORMAT and ML_FRAMEWORK TBD
 
   # frontend:
   #   build: ./frontend
