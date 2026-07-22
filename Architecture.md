@@ -297,6 +297,7 @@ The following items have **not yet been finalised** and are subject to change:
 
 2. **Sensor Data Input Format** — The format in which sensor data arrives
    (CSV uploads, JSON API payloads, or IoT streaming) has not been determined.
+   I chose wk2 dataset because it shows the exact same inferential conclusion as wk 3 dataset and it is not as heavily loaded compared to wk 3 dataset.
 
 3. **ML Service API Contract** — The interface between Backend API and ML
    Service needs to be defined collaboratively before integration.
