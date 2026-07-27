@@ -43,13 +43,13 @@ The Smart Environmental Monitoring System uses a microservices architecture to p
 
 Using a microservices architecture improves modularity by giving each service a specific responsibility, making it easier to develop and maintain. It also improves scalability, as each service can be deployed or scaled independently based on demand. Since the services operate separately, the system is also more fault tolerant, as a failure in one service is less likely to affect the others, allowing the rest of the application to continue running.
 
-### Frontend Dashboard
+### Data Ingestion
 
-The Frontend Dashboard provides a user-friendly interface for monitoring environmental conditions. It displays sensor data, anomaly detection results, and historical trends by sending REST API requests to the Backend API. Users can easily view environmental status and receive alerts without directly interacting with the database.
+The Data Ingestion Service is responsible for collecting environmental sensor data and transferring it to the system for processing. It receives real-time readings such as temperature, humidity, CO2 concentration, and air quality from IoT sensors through REST APIs. The service validates and formats the incoming data before storing it in the database and forwarding it to the Machine Learning Service for analysis. By separating data collection into its own microservice, the system achieves better scalability, reliability, and maintainability, allowing new sensors or data sources to be integrated with minimal changes to the overall application.
 
-### Notification Service
+### Database Service
 
-The Notification Service is used to send alerts when the system detects abnormal environmental conditions. After the AI model analyses the sensor data, the service checks whether any readings, such as temperature, humidity, CO2, or air quality, exceed the predefined threshold. If an abnormal condition is detected, an alert is automatically sent to a Telegram bot using the Telegram Bot API. This allows users to receive notifications instantly on their phones and take action as soon as possible. Separating the notification feature into its own microservice also makes it easier to maintain, update, and scale without affecting the other services in the system.
+The Database Service stores the imported environmental monitoring dataset, anomaly prediction results, and historical records. The Backend API retrieves data from the database for preprocessing and machine learning analysis, while prediction results are stored for future reference and visualisation. This provides persistent and centralized data storage, enabling efficient data management and historical analysis.
 
 ### Backend API Service
 
@@ -59,13 +59,13 @@ The Backend API Service acts as the communication layer between all microservice
 
 The Machine Learning Service receives validated sensor data from the Backend API, analyses it using the trained model, and returns prediction results. If an abnormal condition is detected, the Backend API stores the result in the database and triggers the Notification Service to send a Telegram alert.
 
-### Data Ingestion
+### Notification Service
 
-The Data Ingestion Service is responsible for collecting environmental sensor data and transferring it to the system for processing. It receives real-time readings such as temperature, humidity, CO2 concentration, and air quality from IoT sensors through REST APIs. The service validates and formats the incoming data before storing it in the database and forwarding it to the Machine Learning Service for analysis. By separating data collection into its own microservice, the system achieves better scalability, reliability, and maintainability, allowing new sensors or data sources to be integrated with minimal changes to the overall application.
+The Notification Service is used to send alerts when the system detects abnormal environmental conditions. After the AI model analyses the sensor data, the service checks whether any readings, such as temperature, humidity, CO2, or air quality, exceed the predefined threshold. If an abnormal condition is detected, an alert is automatically sent to a Telegram bot using the Telegram Bot API. This allows users to receive notifications instantly on their phones and take action as soon as possible. Separating the notification feature into its own microservice also makes it easier to maintain, update, and scale without affecting the other services in the system.
 
-### Database Service
+### Frontend Dashboard
 
-The Database Service stores the imported environmental monitoring dataset, anomaly prediction results, and historical records. The Backend API retrieves data from the database for preprocessing and machine learning analysis, while prediction results are stored for future reference and visualisation. This provides persistent and centralized data storage, enabling efficient data management and historical analysis.
+The Frontend Dashboard provides a user-friendly interface for monitoring environmental conditions. It displays sensor data, anomaly detection results, and historical trends by sending REST API requests to the Backend API. Users can easily view environmental status and receive alerts without directly interacting with the database.
 
 ## Docker Containerization
 
