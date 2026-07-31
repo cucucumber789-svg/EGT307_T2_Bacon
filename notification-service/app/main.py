@@ -1,18 +1,94 @@
-"""Flask application entry point."""
+"""
+notification-service/app/main.py
 
-from flask import Flask, jsonify
+Notification Service - checks each incoming sensor reading against 3
+simple thresholds, and if one is crossed: sends a Telegram message and
+saves the alert so the dashboard can display it.
 
-from app.routers.notification import notification_bp
+    temperature > 39   -> "High temperature detected!"
+    humidity    > 55   -> "High humidity detected!"
+    air_quality <= 2   -> "Poor air quality detected!"
+"""
+
+import os
+from datetime import datetime, timezone
+
+import requests
+from flask import Flask, request, jsonify
+
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+
+# Alerts are kept here in memory so the dashboard can GET /api/alerts and
+# show them; simple on purpose, resets if the service restarts.
+recent_alerts = []
+
+
+def check_conditions(temperature, humidity, air_quality):
+    #"Compare one reading against the 3 thresholds, return the alert messages that apply."
+    messages = []
+    if temperature > 39:
+        messages.append("High temperature detected!")
+    if humidity > 55:
+        messages.append("High humidity detected!")
+    if air_quality <= 2:
+        messages.append("Poor air quality detected!")
+    return messages
+
+
+def send_telegram(message):
+    #"Send one message to the Telegram chat bot; skips quietly if not configured."
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("Telegram not configured, skipping send:", message)
+        return
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    try:
+        requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": message}, timeout=5)
+    except requests.exceptions.RequestException as e:
+        print("Telegram send failed:", e)
 
 
 def create_app():
     app = Flask(__name__)
 
-    app.register_blueprint(notification_bp, url_prefix="/api")
-
     @app.route("/")
     def health():
         return jsonify({"status": "ok", "service": "notification-service"})
+
+    @app.route("/api/notify", methods=["POST"])
+    def notify():
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON payload provided"}), 400
+
+        required = ["temperature", "humidity", "air_quality"]
+        missing = [f for f in required if f not in data]
+        if missing:
+            return jsonify({"error": f"Missing fields: {missing}"}), 400
+
+        temperature = float(data["temperature"])
+        humidity = float(data["humidity"])
+        air_quality = float(data["air_quality"])
+
+        triggered = check_conditions(temperature, humidity, air_quality)
+
+        for message in triggered:
+            send_telegram(message)
+            recent_alerts.insert(0, {
+                "message": message,
+                "temperature": temperature,
+                "humidity": humidity,
+                "air_quality": air_quality,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+        del recent_alerts[50:]  # keep only the 50 most recent, so this can't grow forever
+
+        return jsonify({"triggered": triggered}), 200
+
+    @app.route("/api/alerts", methods=["GET"])
+    def get_alerts():
+        # This is what the dashboard polls to show alerts.
+        return jsonify(recent_alerts)
 
     return app
 

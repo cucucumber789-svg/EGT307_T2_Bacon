@@ -1,7 +1,8 @@
 FROM python:3.11-slim
 
 # Notification Service container
-# Intention: Lightweight Python image for alert processing
+# Intention: Lightweight Python image that checks sensor readings and
+# sends Telegram alerts
 
 WORKDIR /app
 
@@ -12,4 +13,4 @@ COPY . .
 
 EXPOSE 5002
 
-CMD ["python", "-m", "app.main"]
+CMD ["python", "app/main.py"]
