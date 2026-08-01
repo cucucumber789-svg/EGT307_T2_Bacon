@@ -27,17 +27,17 @@ recent_alerts = []
 def check_conditions(temperature, humidity, air_quality):
     #"Compare one reading against the 3 thresholds, return the alert messages that apply."
     messages = []
-    if temperature > 39:
+    if temperature > 30:
         messages.append("High temperature detected!")
-    if humidity > 55:
+    if humidity > 75:
         messages.append("High humidity detected!")
-    if air_quality <= 2:
+    if air_quality > 45:
         messages.append("Poor air quality detected!")
     return messages
 
 
 def send_telegram(message):
-    #"Send one message to the Telegram chat bot; skips quietly if not configured."
+    #"Send one message to the Telegram chat bot"
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("Telegram not configured, skipping send:", message)
         return
