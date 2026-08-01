@@ -27,17 +27,17 @@ recent_alerts = []
 def check_conditions(temperature, humidity, air_quality):
     #"Compare one reading against the 3 thresholds, return the alert messages that apply."
     messages = []
-    if temperature > 30:
+    if temperature > 39:
         messages.append("High temperature detected!")
-    if humidity > 75:
+    if humidity > 55:
         messages.append("High humidity detected!")
-    if air_quality > 45:
+    if air_quality <= 2:
         messages.append("Poor air quality detected!")
     return messages
 
 
 def send_telegram(message):
-    #"Send one message to the Telegram chat bot"
+    #"Send one message to the Telegram chat bot; skips quietly if not configured."
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("Telegram not configured, skipping send:", message)
         return
@@ -50,6 +50,15 @@ def send_telegram(message):
 
 def create_app():
     app = Flask(__name__)
+
+    @app.after_request
+    def allow_dashboard(response):
+        # dashboard.js calls this service straight from the browser, on a
+        # different port, so it needs these headers or the browser blocks it.
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
 
     @app.route("/")
     def health():

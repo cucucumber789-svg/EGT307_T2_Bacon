@@ -1,25 +1,31 @@
 /**
  * Dashboard logic - Bacon.Inc Environmental Monitoring Station
  *
- * Talks ONLY to Backend API - never directly to the ML Service. Backend
- * API is responsible for calling ML Service itself and handing back
- * predictions (see Architecture.md's communication table).
+ * Talks to Backend API for sensor data (and best-effort predictions), and
+ * to Notification Service directly to drive the alert panel.
  *
  * Endpoints used:
  *
- *   GET /api/sensors?limit=N
+ *   GET {API_BASE}/sensors?limit=N
  *     -> [{ id, created_at, entry_id, temperature, humidity, air_quality }]
  *     Already implemented and working.
  *
- *   GET /api/predictions?limit=N
+ *   GET {API_BASE}/predictions?limit=N
  *     -> [{ entry_id, anomaly_score, is_anomaly, created_at }]
  *     NOT implemented yet (backend-api/app/routers/prediction.py is still
- *     a TODO). Until it exists, this file keeps working off sensor data
- *     alone - the notification panel just says so instead of guessing.
+ *     a TODO). Only used to color anomalous points on the charts, so it
+ *     fails silently until it exists.
+ *
+ *   POST {NOTIFICATION_BASE}/notify  { temperature, humidity, air_quality }
+ *     -> { triggered: ["..."] }
+ *     Notification Service checks the latest reading against its 3 rules
+ *     (and messages Telegram if one fires); the alert panel just shows
+ *     whatever it decided.
  */
 
 const CONFIG = {
     API_BASE: "http://localhost:5000/api",
+    NOTIFICATION_BASE: "http://localhost:5002/api",
     POLL_INTERVAL_MS: 8000,
     HISTORY_POINTS: 20,       // how many past readings to plot on each chart
     ANOMALY_THRESHOLD: 0.8,   // same convention as notification-service's ALERT_THRESHOLD
@@ -100,6 +106,16 @@ async function fetchJSON(path) {
     return res.json();
 }
 
+async function postJSON(url, body) {
+    const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(url + " -> " + res.status);
+    return res.json();
+}
+
 // ---------- rendering ----------
 
 function updateCharts(readings, anomalyEntryIds) {
@@ -153,32 +169,40 @@ async function refresh() {
     }
 
     // Predictions are best-effort: /api/predictions doesn't exist on
-    // Backend API yet, so a failure here just means "not built yet".
+    // Backend API yet, so a failure here just means "not built yet". Only
+    // used to color anomalous points red on the charts below.
     let anomalyEntryIds = new Set();
-    let predictionsAvailable = false;
-    let latestPrediction = null;
     try {
         const predictions = await fetchJSON("/predictions?limit=" + CONFIG.HISTORY_POINTS);
-        predictionsAvailable = true;
-        latestPrediction = predictions[0] || null;
         anomalyEntryIds = buildAnomalySet(predictions);
     } catch (err) {
-        predictionsAvailable = false;
+        // not built yet - charts just show uncolored points
     }
 
     updateCharts(readings, anomalyEntryIds);
 
-    if (!predictionsAvailable) {
-        setAlert("pending", "Notification", "ML predictions not connected yet - showing real sensor data only.");
-    } else if (!latestPrediction) {
-        setAlert("pending", "Notification", "Waiting for a prediction.");
-    } else {
-        const isAnomaly = latestPrediction.is_anomaly ?? (latestPrediction.anomaly_score >= CONFIG.ANOMALY_THRESHOLD);
-        if (isAnomaly) {
-            setAlert("alert", "Anomaly detected", "Entry #" + latestPrediction.entry_id + " was flagged by the ML service.");
+    // Notification Service: hand it the latest reading, it checks the 3
+    // threshold rules (and messages Telegram if one fires) - the alert
+    // panel just shows whatever it decided.
+    const latest = readings[0];
+    if (!latest) {
+        setAlert("pending", "Notification", "Waiting for data...");
+        return;
+    }
+    try {
+        const result = await postJSON(CONFIG.NOTIFICATION_BASE + "/notify", {
+            temperature: latest.temperature,
+            humidity: latest.humidity,
+            air_quality: latest.air_quality,
+        });
+        if (result.triggered.length > 0) {
+            setAlert("alert", result.triggered[0], result.triggered.join(" "));
         } else {
-            setAlert("good", "All systems normal", "No anomalies in the latest reading.");
+            setAlert("good", "All systems normal", "No alerts on the latest reading.");
         }
+    } catch (err) {
+        console.error("Could not reach Notification Service:", err);
+        setAlert("pending", "Notification", "Can't reach Notification Service.");
     }
 }
 
