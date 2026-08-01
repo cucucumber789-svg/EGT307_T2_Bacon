@@ -1,35 +1,51 @@
-<!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>BACON|DASHBOARD</title>
         <link rel="stylesheet" href="../css/styles.css">
     </head>
     <body>
+        <nav>
+            <ul id="navleft">
+                <li>Bacon.Inc</li>
+            </ul>
+            <p id="conn-status">Connecting&hellip;</p>
+        </nav>
+
         <main>
-            <nav>
-                <ul id="navleft">
-                    <ul id="navleft">
-                         <li>Bacon.Inc</li>
-                     </ul>
-                </ul>
-            </nav>
-            <div id="c1">
-                <div id="note">
-                    <p id="alert">Notification</p>
-                </div>
-                <div id="temperature">
-                    <p id="'temp">Temperature</p>
-                </div>
+            <!-- Notification / alert panel. Driven by the latest ML prediction
+                 (GET /api/predictions via Backend API). Shows a neutral
+                 "not connected yet" message until that endpoint exists. -->
+            <div id="note" data-state="pending">
+                <p id="alert">Notification</p>
+                <p id="alert-detail">Waiting for data&hellip;</p>
             </div>
-            <div id="c2">
-                <div id="hum">
-                    <p id="humt">Humidity</p>
+
+            <div class="metrics">
+                <div id="temperature">
+                    <p class="metric-label">Temperature</p>
+                    <p class="metric-value"><span id="temp-value">&mdash;</span><span class="unit">&deg;C</span></p>
+                    <canvas id="temp-chart"></canvas>
                 </div>
+
+                <div id="hum">
+                    <p class="metric-label" id="humt">Humidity</p>
+                    <p class="metric-value"><span id="humidity-value">&mdash;</span><span class="unit">%RH</span></p>
+                    <canvas id="humidity-chart"></canvas>
+                </div>
+
                 <div id="aq">
-                    <p id="'air">Air Quality</p>
+                    <p class="metric-label">Air Quality</p>
+                    <p class="metric-value"><span id="aq-value">&mdash;</span><span class="unit" id="aq-unit"></span></p>
+                    <canvas id="aq-chart"></canvas>
                 </div>
             </div>
         </main>
+
+        <!-- Chart.js draws the temperature/humidity/air-quality history on
+             <canvas>. dashboard.js does the fetching + rendering. -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+        <script src="../js/dashboard.js"></script>
     </body>
 </html>

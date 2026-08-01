@@ -22,7 +22,6 @@ In a nuclear plant, catching a sudden change in air quality is a race against an
 ## Objectives
 
 1. Automated Analysis: Use machine learning to interpret sensor data instead of relying solely on raw readings
-
 2. Early Detection: Identify abnormal environmental conditions (e.g., pollution spikes, temperature anomalies) before they escalate.
 
 ## Intended Benefits
