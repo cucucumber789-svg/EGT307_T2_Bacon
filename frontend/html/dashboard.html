@@ -14,9 +14,9 @@
         </nav>
 
         <main>
-            <!-- Notification / alert panel. Driven by the latest ML prediction
-                 (GET /api/predictions via Backend API). Shows a neutral
-                 "not connected yet" message until that endpoint exists. -->
+            <!-- Notification / alert panel. Driven by Notification Service
+                 (POST /api/notify), which checks the latest reading against
+                 its 3 threshold rules. -->
             <div id="note" data-state="pending">
                 <p id="alert">Notification</p>
                 <p id="alert-detail">Waiting for data&hellip;</p>

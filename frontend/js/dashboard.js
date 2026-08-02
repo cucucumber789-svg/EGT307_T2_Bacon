@@ -5,47 +5,35 @@
  * to Notification Service directly to drive the alert panel.
  *
  * Endpoints used:
- *
- *   GET {API_BASE}/sensors?limit=N
- *     -> [{ id, created_at, entry_id, temperature, humidity, air_quality }]
- *     Already implemented and working.
- *
- *   GET {API_BASE}/predictions?limit=N
- *     -> [{ entry_id, anomaly_score, is_anomaly, created_at }]
- *     NOT implemented yet (backend-api/app/routers/prediction.py is still
- *     a TODO). Only used to color anomalous points on the charts, so it
- *     fails silently until it exists.
- *
- *   POST {NOTIFICATION_BASE}/notify  { temperature, humidity, air_quality }
- *     -> { triggered: ["..."] }
- *     Notification Service checks the latest reading against its 3 rules
- *     (and messages Telegram if one fires); the alert panel just shows
- *     whatever it decided.
+ *   GET  {API_BASE}/sensors?limit=N      -> sensor readings (working)
+ *   GET  {API_BASE}/predictions?limit=N  -> ML predictions (not built yet, fails silently)
+ *   POST {NOTIFICATION_BASE}/notify      -> { triggered: [...] } from Notification Service
  */
 
 const CONFIG = {
-    API_BASE: "http://localhost:5000/api",
-    NOTIFICATION_BASE: "http://localhost:5002/api",
-    POLL_INTERVAL_MS: 8000,
-    HISTORY_POINTS: 20,       // how many past readings to plot on each chart
-    ANOMALY_THRESHOLD: 0.8,   // same convention as notification-service's ALERT_THRESHOLD
-    AQ_LABELS: { 1: "Good", 2: "Fair", 3: "Moderate", 4: "Poor", 5: "Hazardous" },
+    API_BASE: "http://localhost:5000/api",           // where Backend API is running
+    NOTIFICATION_BASE: "http://localhost:5002/api",  // where Notification Service is running
+    POLL_INTERVAL_MS: 8000,                          // how often to refresh the page, in milliseconds
+    HISTORY_POINTS: 20,                              // how many past readings to plot on each chart
+    ANOMALY_THRESHOLD: 0.8,                          // same convention as notification-service's ALERT_THRESHOLD
+    AQ_LABELS: { 1: "Good", 2: "Fair", 3: "Moderate", 4: "Poor", 5: "Hazardous" }, // turns the air_quality number into a word
 };
 
 // ---------- element references ----------
-const noteEl = document.getElementById("note");
-const alertTitleEl = document.getElementById("alert");
-const alertDetailEl = document.getElementById("alert-detail");
-const connEl = document.getElementById("conn-status");
+// Look up each HTML element once here, instead of searching for it again on every refresh.
+const noteEl = document.getElementById("note");                 // the alert panel box; its color depends on the alert state
+const alertTitleEl = document.getElementById("alert");          // the alert panel's bold title line
+const alertDetailEl = document.getElementById("alert-detail");  // the alert panel's smaller detail line
+const connEl = document.getElementById("conn-status");          // small text showing "Live" or "Offline"
 
-const tempValueEl = document.getElementById("temp-value");
-const humidityValueEl = document.getElementById("humidity-value");
-const aqValueEl = document.getElementById("aq-value");
-const aqUnitEl = document.getElementById("aq-unit");
+const tempValueEl = document.getElementById("temp-value");          // big number showing the latest temperature
+const humidityValueEl = document.getElementById("humidity-value");  // big number showing the latest humidity
+const aqValueEl = document.getElementById("aq-value");               // big number showing the latest air quality level
+const aqUnitEl = document.getElementById("aq-unit");                 // word next to it, e.g. "Good" or "Poor"
 
 // ---------- charts ----------
-// One small line chart per metric, created once, then just fed new data
-// on every poll (cheaper than rebuilding the chart from scratch each time).
+
+// Creates one small line chart in the given canvas, starting empty.
 function makeChart(canvasId, label, color) {
     const ctx = document.getElementById(canvasId);
     return new Chart(ctx, {
@@ -58,7 +46,8 @@ function makeChart(canvasId, label, color) {
                 borderColor: color,
                 backgroundColor: color,
                 pointBackgroundColor: color,
-                pointRadius: 3,
+                pointRadius: 4,   // slightly bigger dots so they're easy to see
+                borderWidth: 2,   // slightly thicker line
                 tension: 0.25,
             }],
         },
@@ -67,45 +56,69 @@ function makeChart(canvasId, label, color) {
             animation: false,
             plugins: { legend: { display: false } },
             scales: {
-                x: { display: false },
-                y: { beginAtZero: false },
+                x: {
+                    display: true,                                     // show the time under the chart
+                    ticks: { maxTicksLimit: 6, font: { size: 11 } },    // don't cram in every label, keep text readable
+                },
+                y: {
+                    beginAtZero: false,
+                    ticks: { font: { size: 12 } },
+                },
             },
         },
     });
 }
 
-const tempChart = makeChart("temp-chart", "Temperature", "#e0526b");
-const humidityChart = makeChart("humidity-chart", "Humidity", "#2f7fd1");
-const aqChart = makeChart("aq-chart", "Air Quality", "#2e9e5b");
+const tempChart = makeChart("temp-chart", "Temperature", "#e0526b");       // line chart of temperature over time
+const humidityChart = makeChart("humidity-chart", "Humidity", "#2f7fd1");  // line chart of humidity over time
+const aqChart = makeChart("aq-chart", "Air Quality", "#2e9e5b");           // line chart of air quality over time
 
-// ---------- small pure helpers (easy to test on their own) ----------
+// ---------- small helper functions ----------
 
+// Turns a timestamp into a short "HH:MM" label for the chart's x-axis.
 function timeLabel(isoString) {
     return new Date(isoString).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-// This is "the ML prediction, turned into a graph": rather than a separate
-// chart, anomalous readings just get colored red on these ones, wherever
-// their entry_id was flagged by the ML service.
+// Builds one color per point: red if that reading was flagged as an anomaly, otherwise the normal color.
 function pointColors(entryIds, anomalyEntryIds, defaultColor) {
-    return entryIds.map((id) => (anomalyEntryIds.has(id) ? "#d6455b" : defaultColor));
+    const colors = [];
+    for (let i = 0; i < entryIds.length; i++) {
+        if (anomalyEntryIds.has(entryIds[i])) {
+            colors.push("#d6455b");
+        } else {
+            colors.push(defaultColor);
+        }
+    }
+    return colors;
 }
 
+// Collects the entry_id of every reading the ML service flagged as an anomaly.
 function buildAnomalySet(predictions) {
     const set = new Set();
-    predictions.forEach((p) => {
-        const isAnomaly = p.is_anomaly ?? (p.anomaly_score >= CONFIG.ANOMALY_THRESHOLD);
-        if (isAnomaly) set.add(p.entry_id);
-    });
+    for (let i = 0; i < predictions.length; i++) {
+        const p = predictions[i];
+        let isAnomaly;
+        if (p.is_anomaly !== undefined && p.is_anomaly !== null) {
+            isAnomaly = p.is_anomaly;
+        } else {
+            isAnomaly = p.anomaly_score >= CONFIG.ANOMALY_THRESHOLD;
+        }
+        if (isAnomaly) {
+            set.add(p.entry_id);
+        }
+    }
     return set;
 }
 
+// Sends a GET request to Backend API and returns the parsed JSON.
 async function fetchJSON(path) {
     const res = await fetch(CONFIG.API_BASE + path);
     if (!res.ok) throw new Error(path + " -> " + res.status);
     return res.json();
 }
 
+// Sends a POST request with a JSON body to the given URL and returns the parsed JSON.
 async function postJSON(url, body) {
     const res = await fetch(url, {
         method: "POST",
@@ -118,24 +131,38 @@ async function postJSON(url, body) {
 
 // ---------- rendering ----------
 
+// Redraws all 3 charts and the latest-value boxes from a fresh batch of readings.
 function updateCharts(readings, anomalyEntryIds) {
     // Backend returns newest-first; charts read left-to-right, oldest-first.
-    const chronological = [...readings].reverse();
-    const labels = chronological.map((r) => timeLabel(r.created_at));
-    const entryIds = chronological.map((r) => r.entry_id);
+    const chronological = readings.slice();
+    chronological.reverse();
+
+    const labels = [];        // x-axis labels, one per reading (e.g. "10:15")
+    const entryIds = [];      // entry_id per reading, used to look up anomaly colors
+    const temperatures = [];  // y-axis values for the temperature chart
+    const humidities = [];    // y-axis values for the humidity chart
+    const airQualities = [];  // y-axis values for the air quality chart
+    for (let i = 0; i < chronological.length; i++) {
+        const r = chronological[i];
+        labels.push(timeLabel(r.created_at));
+        entryIds.push(r.entry_id);
+        temperatures.push(r.temperature);
+        humidities.push(r.humidity);
+        airQualities.push(r.air_quality);
+    }
 
     tempChart.data.labels = labels;
-    tempChart.data.datasets[0].data = chronological.map((r) => r.temperature);
+    tempChart.data.datasets[0].data = temperatures;
     tempChart.data.datasets[0].pointBackgroundColor = pointColors(entryIds, anomalyEntryIds, "#e0526b");
     tempChart.update();
 
     humidityChart.data.labels = labels;
-    humidityChart.data.datasets[0].data = chronological.map((r) => r.humidity);
+    humidityChart.data.datasets[0].data = humidities;
     humidityChart.data.datasets[0].pointBackgroundColor = pointColors(entryIds, anomalyEntryIds, "#2f7fd1");
     humidityChart.update();
 
     aqChart.data.labels = labels;
-    aqChart.data.datasets[0].data = chronological.map((r) => r.air_quality);
+    aqChart.data.datasets[0].data = airQualities;
     aqChart.data.datasets[0].pointBackgroundColor = pointColors(entryIds, anomalyEntryIds, "#2e9e5b");
     aqChart.update();
 
@@ -148,14 +175,16 @@ function updateCharts(readings, anomalyEntryIds) {
     }
 }
 
+// Updates the note panel's color, title, and detail text.
 function setAlert(state, title, detail) {
-    noteEl.dataset.state = state;
+    noteEl.dataset.state = state;   // "pending" | "alert" | "good" - CSS uses this to pick the color
     alertTitleEl.textContent = title;
     alertDetailEl.textContent = detail;
 }
 
 // ---------- main polling loop ----------
 
+// Runs on a timer: fetches sensor data, updates the charts, then checks and shows alerts.
 async function refresh() {
     let readings;
     try {
@@ -168,9 +197,9 @@ async function refresh() {
         return;
     }
 
-    // Predictions are best-effort: /api/predictions doesn't exist on
-    // Backend API yet, so a failure here just means "not built yet". Only
-    // used to color anomalous points red on the charts below.
+    // Predictions are best-effort: /api/predictions doesn't exist on Backend
+    // API yet, so a failure here just means "not built yet". Only used to
+    // color anomalous points red on the charts below.
     let anomalyEntryIds = new Set();
     try {
         const predictions = await fetchJSON("/predictions?limit=" + CONFIG.HISTORY_POINTS);
