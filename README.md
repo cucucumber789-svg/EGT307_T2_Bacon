@@ -42,6 +42,10 @@ The Smart Environmental Monitoring System uses a microservices architecture to p
 
 Using a microservices architecture improves modularity by giving each service a specific responsibility, making it easier to develop and maintain. It also improves scalability, as each service can be deployed or scaled independently based on demand. Since the services operate separately, the system is also more fault tolerant, as a failure in one service is less likely to affect the others, allowing the rest of the application to continue running.
 
+### Sensor Architecture
+
+The Sensor Architecture is responsible for simulating IoT sensors by continuously reading environmental data from the CSV dataset. Instead of collecting live sensor readings, it loops through the existing dataset and sends one record at a time to the Data Ingestion Service through REST API requests. This simulates a real-time data stream, allowing the rest of the system to process, analyse, and display sensor data as if it were coming from actual IoT devices. This approach provides a simple and reliable way to test the system without requiring physical hardware.
+
 ### Data Ingestion
 
 The Data Ingestion Service is responsible for collecting environmental sensor data and transferring it to the system for processing. It receives real-time readings such as temperature, humidity, CO2 concentration, and air quality from IoT sensors through REST APIs. The service validates and formats the incoming data before storing it in the database and forwarding it to the Machine Learning Service for analysis. By separating data collection into its own microservice, the system achieves better scalability, reliability, and maintainability, allowing new sensors or data sources to be integrated with minimal changes to the overall application.
