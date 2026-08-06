@@ -37,11 +37,11 @@ def check_conditions(temperature, humidity, air_quality):
 
 
 def send_telegram(message):
-    #"Send one message to the Telegram chat bot; skips quietly if not configured."
+    #"Send one message to the Telegram chat bot"
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("Telegram not configured, skipping send:", message)
         return
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    url = f"https://api.telegram.org/bot8861372458:AAHlC1HMhUJzSLoUlzMjLXdAjX-X7Cjw3F8/sendMessage"
     try:
         requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": message}, timeout=5)
     except requests.exceptions.RequestException as e:

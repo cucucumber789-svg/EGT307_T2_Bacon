@@ -1,0 +1,35 @@
+import pandas as pd
+import requests
+import time
+
+# Load the CSV dataset
+df = pd.read_csv("sensor_data.csv")
+
+# Data Ingestion Service endpoint
+API_URL = "http://data-ingestion:5000/api/sensor"
+
+print("Sensor simulator started...")
+
+while True:
+    # Loop through every row in the dataset
+    for _, row in df.iterrows():
+
+        sensor_data = {
+            "temperature": float(row["Temperature"]),
+            "humidity": float(row["Humidity"]),
+            "air_quality": int(row["AirQuality"])
+        }
+
+        try:
+            response = requests.post(API_URL, json=sensor_data)
+
+            if response.status_code == 200:
+                print("Data sent:", sensor_data)
+            else:
+                print("Failed:", response.status_code)
+
+        except Exception as e:
+            print("Connection error:", e)
+
+        # Send one reading every 3 seconds
+        time.sleep(3)

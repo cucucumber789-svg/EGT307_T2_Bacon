@@ -13,7 +13,7 @@
 
 ## Problem Statement
 
-Many environmental monitoring systems only display sensor readings without providing intelligent analysis or early detection of abnormal conditions. This requires users to manually monitor large amounts of data, which is time-consuming and may lead to delayed responses. The project aims to develop an AI-powered Smart Environmental Monitoring System that uses machine learning to analyse sensor data and detect abnormal environmental conditions. The system is built using a microservices architecture with Docker and Kubernetes to improve scalability, reliability, and ease of maintenance while supporting efficient deployment.
+Many environmental monitoring systems only display sensor readings without providing intelligent analysis or early detection of abnormal conditions. This requires users to manually monitor large amounts of data, which is time-consuming and may lead to delayed responses. 
 
 ## Relevance of the problem towards the real world
 
@@ -36,6 +36,8 @@ In a nuclear plant, catching a sudden change in air quality is a race against an
 
 ## Data Source
 
+Data is collected through sensors that is placed in a controlled environment. The controlled environment is meant to simulate work conditions in a dangerous environment such has a chemical or nuclear powerplants. The following features of the data are Temperature, Humidity and Air Quality.
+
 ## System Architecture
 
 The Smart Environmental Monitoring System uses a microservices architecture to provide a flexible and reliable solution for monitoring environmental conditions. The system consists of six services: the Data Ingestion Service, which collects sensor data; the Machine Learning Service, which analyses the data and detects abnormal conditions; the Notification Service, which sends Telegram alerts when abnormal readings are detected; the Backend API, which manages communication between services; the Database, which stores sensor data and prediction results; and the Frontend Dashboard, where users can view live data, AI predictions, and notifications.
@@ -48,7 +50,7 @@ The Sensor Architecture is responsible for simulating IoT sensors by continuousl
 
 ### Data Ingestion
 
-The Data Ingestion Service is responsible for collecting environmental sensor data and transferring it to the system for processing. It receives real-time readings such as temperature, humidity, CO2 concentration, and air quality from IoT sensors through REST APIs. The service validates and formats the incoming data before storing it in the database and forwarding it to the Machine Learning Service for analysis. By separating data collection into its own microservice, the system achieves better scalability, reliability, and maintainability, allowing new sensors or data sources to be integrated with minimal changes to the overall application.
+The Data Ingestion Service is responsible for transferring environmental sensor data to the system for processing. It receives real-time readings such as temperature, humidity, CO2 concentration, and air quality from IoT sensors through REST APIs. The service validates and formats the incoming data before storing it in the database and forwarding it to the Machine Learning Service for analysis. By separating data collection into its own microservice, the system achieves better scalability, reliability, and maintainability, allowing new sensors or data sources to be integrated with minimal changes to the overall application.
 
 ### Database Service
 
@@ -79,3 +81,5 @@ Each application component is packaged as a Docker container to provide a lightw
 The containers are orchestrated using Kubernetes, which automates deployment, scaling, load balancing, and recovery of application services. Kubernetes continuously monitors the desired state of the system and automatically replaces failed Pods, ensuring high availability and fault tolerance. The orchestration platform also enables the application to scale horizontally by creating additional Pods when system workload increases.
 
 ## Issues and Limitations
+
+The system uses a CSV dataset to simulate IoT sensor data instead of real sensors, so it may not fully represent real-world conditions. The machine learning model is also trained on a limited dataset, which may affect its accuracy when new or different data is used.
