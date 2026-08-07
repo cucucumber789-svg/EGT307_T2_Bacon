@@ -4,10 +4,9 @@
 
 | Name       | Task                                                                           | Microservice             |
 |------------|--------------------------------------------------------------------------------|--------------------------|
-| Wei Guan   | Notification Service, Frontend Dashboard                                       | notification-service     |
+| Wei Guan   | Notification Service, Frontend Dashboard, Sensor Architecture                  | notification-service     |
 | Shun Wei   | Backend API, Docker & Kubernetes, System Architecture, System Integration      | backend-api              |
-| Derek      | Data Ingestion Service, Database Setup                                         | data-ingestion-service   |
-| Louis      | ML Service                                                                     | ml-service               |
+| Derek      | Data Ingestion Service, Database Setup, ML Service                             | data-ingestion-service   |
 
 ## Project Overview
 
@@ -26,13 +25,10 @@ In a nuclear plant, catching a sudden change in air quality is a race against an
 
 ## Intended Benefits
 
-1. Reduced Manual Monitoring: Eliminates the need for users to constantly track large datasets.
-2. Timely Responses: Early warnings help prevent environmental hazards or mitigate their impact.
-3. Scalability & Reliability: Kubernetes ensures the system can handle growing sensor networks and data streams.
-4. Improved Accuracy: AI models can detect subtle anomalies that humans might miss.
-5. Cross-Domain Applications: Supports monitoring of air quality, water pollution, biodiversity, and climate hazards.
-6. Operational Efficiency: Microservices allow faster updates, easier maintenance, and resilience against failures.
-7. Public Accountability: Provides transparent, scientifically valid insights for policymakers and communities.
+1. Reduced Manual Monitoring: AI automatically monitors environmental data, reducing the need for constant human supervision.
+2. Early Hazard Detection: Provides timely alerts to help prevent or minimise environmental risks.
+3. Improved Accuracy: AI detects abnormal patterns that may be missed during manual monitoring.
+4. Scalable and Easy to Maintain: The microservices architecture allows each service to be updated, maintained, and scaled independently.
 
 ## Data Source
 
