@@ -41,13 +41,9 @@ def _ensure_model():
         model = current_app.config["ML_MODEL"]
         if model is not None:
             return model
-        try:
-            df = model_service.load_dataset(Config.DATASET_PATH)
-            model = model_service.train_model(df)
+        model = model_service.train_if_available(Config.DATASET_PATH)
+        if model is not None:
             current_app.config["ML_MODEL"] = model
-            print(f"Lazily trained model on {len(df)} rows from {Config.DATASET_PATH}")
-        except FileNotFoundError:
-            return None
     return model
 
 

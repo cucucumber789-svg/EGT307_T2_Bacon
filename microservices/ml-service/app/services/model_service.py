@@ -52,6 +52,22 @@ def train_model(df):
     return model
 
 
+def train_if_available(path):
+    """Load the cleaned dataset and train, or return None if it does not exist.
+
+    Single source of the graceful missing-data handling: the Flask app, the
+    lazy prediction routes, and the standalone script all call this so the
+    behaviour stays identical everywhere.
+    """
+    try:
+        df = load_dataset(path)
+    except FileNotFoundError:
+        return None
+    model = train_model(df)
+    print(f"Trained model on {len(df)} rows from {path}")
+    return model
+
+
 def check_thresholds(temperature, humidity, air_quality):
     """Compare one reading against the alert thresholds and return alert messages."""
     alerts = []

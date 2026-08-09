@@ -22,12 +22,8 @@ def create_app():
     # (e.g. produced by the data-ingestion service), be ready immediately.
     # If not, start with ML_MODEL = None; the prediction routes retry
     # loading and training on demand instead of the service failing.
-    try:
-        df = model_service.load_dataset(Config.DATASET_PATH)
-        app.config["ML_MODEL"] = model_service.train_model(df)
-        print(f"Trained model on {len(df)} rows from {Config.DATASET_PATH}")
-    except FileNotFoundError:
-        app.config["ML_MODEL"] = None
+    app.config["ML_MODEL"] = model_service.train_if_available(Config.DATASET_PATH)
+    if app.config["ML_MODEL"] is None:
         print(f"No cleaned dataset at {Config.DATASET_PATH} yet - starting idle.")
 
     app.register_blueprint(prediction_bp, url_prefix="/api")
