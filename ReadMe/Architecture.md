@@ -405,6 +405,83 @@ how you run the service. No duplication, no sync issues.
 
 ---
 
+## Development Style & Conventions
+
+How new code in this project should look, structured, and committed. These
+conventions come from the patterns already in the codebase; when in doubt,
+match the neighbouring service.
+
+### Service Structure
+- **Backend-style services** (backend-api, ml-service, data-ingestion) use the
+  `app/` split: `main.py` (a `create_app()` factory), `config.py`,
+  `routers/` (Flask blueprints), `services/` (business logic and HTTP
+  clients), and — for the backend — `models/` (SQLAlchemy) and `database.py`.
+- **Small single-purpose services** stay single-file: the notification service
+  defines its routes, threshold logic, and Telegram sending all in
+  `app/main.py`.
+- **Blueprints** are named `name_bp = Blueprint("name", __name__)` and
+  registered in `main.py` with `url_prefix="/api"`.
+
+### Python Code Style
+- 4-space indentation, `snake_case` names, `"""docstrings"""` for modules and
+  public functions.
+- One idea per function; keep functions small and single-purpose. Prefer plain
+  functions over classes for service logic unless state is genuinely needed.
+
+### Configuration & Secrets
+- Every service reads configuration through
+  `os.environ.get("KEY", "default")` (a `Config` class or module constants).
+- **Secrets** (bot tokens, credentials) use empty-string defaults and are
+  injected per environment — `.env` for Compose, a k8s `Secret`, or shell
+  environment variables. Never hardcode a secret in code.
+- **Non-secret config** (thresholds, paths, URLs) carries a real default in
+  code, and the same value is set explicitly in `docker-compose.yml` / the k8s
+  ConfigMap so behaviour is identical whether or not the variable is set.
+- Never commit credentials, keys, or generated artifacts (the cleaned dataset
+  is git-ignored for this reason).
+
+### Service Entry Points
+- Flask services expose `create_app()` and start via
+  `if __name__ == "__main__": app.run(host="0.0.0.0", port=NNNN)`.
+- Browser-facing services enable CORS with an `@app.after_request` handler.
+- Ports are fixed per service; see the Port Assignments table.
+
+### API Responses & Error Handling
+- JSON in, JSON out. Responses use `jsonify(...)`.
+- Errors use `jsonify({"error": "..."})` with the appropriate status code:
+  `400` for validation, `503` when a dependency is not ready (e.g. ML model
+  not trained), and pass-through codes for informative upstream errors.
+- Validate required fields at the top of a route and return a clear
+  "Missing fields" message.
+- Inter-service calls live in `app/services/` HTTP client modules. Use
+  `raise_for_status()`; wrap in `try/except` when the call is best-effort
+  (must never break the caller — e.g. `notification_client`), or pass the
+  `HTTPError` through when the upstream error is useful to the caller (e.g.
+  the ML 503).
+
+### Git Commits
+- Summary line: lowercase, imperative ("add", "fix", "refactor", "document",
+  "wire").
+- A short body describing what changed and why, ending with a `Why:`
+  paragraph when the rationale isn't obvious from the change itself.
+- One logical change per commit (service code, deployment config, and docs are
+  committed separately).
+
+### Standalone Scripts & Verification
+- Build services as **importable modules first, standalone scripts second**:
+  `if __name__ == "__main__"` blocks call the same functions the routes use.
+- There is no committed test framework. Verify by running services
+  standalone, exercising endpoints with the Flask test client / `curl`, and
+  running import checks.
+
+### Deployment Hygiene
+- One Dockerfile per service; `docker-compose.yml` at the repo root; one
+  `k8s/` manifest folder per service.
+- Environment: `.env` (local), ConfigMap (non-secret), Secret (credentials).
+- Keep generated data and build outputs out of the repository.
+
+---
+
 ## Microservice Communication
 
 | From                | To                | Protocol  | Purpose                          |
