@@ -64,18 +64,20 @@ EGT307_T2_Bacon/
 │   │   │   ├── spark_session.py   # Spark session initialisation (TBD)
 │   │   │   ├── models/
 │   │   │   │   ├── __init__.py
-│   │   │   │   └── sensor.py      # SensorReading SQLAlchemy model
+│   │   │   │   ├── sensor.py      # SensorReading SQLAlchemy model
+│   │   │   │   └── prediction.py  # Prediction SQLAlchemy model (ML results)
 │   │   │   ├── schemas/
 │   │   │   │   ├── __init__.py
 │   │   │   │   └── sensor.py      # Request/response schemas (TBD)
 │   │   │   ├── routers/
 │   │   │   │   ├── __init__.py
-│   │   │   │   ├── sensor.py      # Sensor CRUD routes (implemented)
-│   │   │   │   └── prediction.py  # Prediction routes (TBD)
+│   │   │   │   ├── sensor.py      # Sensor CRUD routes
+│   │   │   │   └── prediction.py  # Predict + predictions routes
 │   │   │   └── services/
 │   │   │       ├── __init__.py
 │   │   │       ├── sensor_service.py  # Sensor business logic (TBD)
-│   │   │       └── ml_client.py       # ML service HTTP client (TBD)
+│   │   │       ├── ml_client.py       # ML service HTTP client
+│   │   │       └── prediction_service.py  # Prediction persistence helpers
 │   │   ├── tests/
 │   │   │   └── __init__.py
 │   │   ├── Dockerfile
@@ -84,14 +86,14 @@ EGT307_T2_Bacon/
 │   ├── ml-service/                # ML SERVICE — anomaly detection
 │   │   ├── app/
 │   │   │   ├── __init__.py
-│   │   │   ├── main.py            # Flask app entry point (TBD)
-│   │   │   ├── config.py          # Model path and ML settings (TBD)
+│   │   │   ├── main.py            # Flask app entry point (lazy training at startup)
+│   │   │   ├── config.py          # Dataset path, model, and threshold settings
 │   │   │   ├── routers/
 │   │   │   │   ├── __init__.py
-│   │   │   │   └── prediction.py  # Prediction endpoints (TBD)
+│   │   │   │   └── prediction.py  # /api/predict + /api/predict/batch
 │   │   │   └── services/
 │   │   │       ├── __init__.py
-│   │   │       └── model_service.py # IsolationForest prototype (notebook-style)
+│   │   │       └── model_service.py # IsolationForest training + prediction
 │   │   ├── Dockerfile
 │   │   └── requirements.txt
 │   │
@@ -118,6 +120,7 @@ EGT307_T2_Bacon/
 │   │
 │   ├── database/                  # DATABASE — PostgreSQL init + sensor data
 │   │   ├── init.sql
+│   │   ├── Dockerfile                # Dataset seed image (k8s init container)
 │   │   └── sensor_data.example.csv   # Raw sensor data (ground truth)
 │   │
 │   ├── frontend/                  # FRONTEND — dashboard (HTML/CSS/JS + Chart.js)
@@ -150,7 +153,7 @@ EGT307_T2_Bacon/
     │   ├── deployment.yaml
     │   ├── service.yaml
     │   └── configmap.yaml
-    ├── database/                  # (empty placeholder)
+    ├── database/                  # shared dataset PersistentVolumeClaim
     └── frontend/                  # (empty placeholder)
 ```
 
@@ -196,17 +199,19 @@ routers/sensor.py  (handles HTTP requests)
   ├── imports schemas/sensor.py  (to validate incoming JSON)   (TBD)
   └── imports services/sensor_service.py (to process data)     (TBD)
 
-routers/prediction.py  (handles prediction requests)            (TBD)
-  ├── imports services/ml_client.py (to call ML microservice)   (TBD)
-  └── imports services/sensor_service.py (to fetch sensor data) (TBD)
+routers/prediction.py  (handles prediction requests)
+  ├── imports services/ml_client.py (to call the ML microservice)
+  └── imports services/prediction_service.py (to persist results in the DB)
 ```
 
 The Notification Service takes a simpler shape: it is a **single-file app** —
 `app/main.py` contains the Flask routes, the threshold checks, and the
 Telegram sending logic all in one place. The Data Ingestion Service keeps the
-`app/` split but is smaller than the Backend API. The ML Service entry points
-(`main.py`, `config.py`, `routers/prediction.py`) are stubs; the working
-anomaly-detection prototype lives in `app/services/model_service.py`.
+`app/` split but is smaller than the Backend API. The ML Service uses the same
+`app/` split: `main.py` trains the IsolationForest model at startup when the
+cleaned dataset is available (or starts idle otherwise), and
+`routers/prediction.py` serves the prediction endpoints, retrying training
+lazily on the first request if data appeared after startup.
 
 ### File-by-File Explanation
 
@@ -222,17 +227,19 @@ in which case they are relative to the service folder inside `microservices/`.
 | `microservices/backend-api/app/database.py` | Creates the SQLAlchemy engine and session. Other files import `SessionLocal` to query or insert data into PostgreSQL. |
 | `microservices/backend-api/app/spark_session.py` | Creates and returns a PySpark `SparkSession`. Services import this to run Spark data processing operations. (TBD) |
 | `microservices/backend-api/app/routers/sensor.py` | Defines Flask Blueprint with sensor endpoints (`GET /api/sensors`, `GET /api/sensors/count`, `POST /api/sensors`, `POST /api/sensors/batch`). Receives HTTP requests and queries/inserts directly into the DB. |
-| `microservices/backend-api/app/routers/prediction.py` | Defines Flask Blueprint with prediction endpoints (`POST /api/predict`). Calls ML service and returns anomaly results. (TBD) |
+| `microservices/backend-api/app/routers/prediction.py` | Defines Flask Blueprint with prediction endpoints (`POST /api/predict`, `GET /api/predictions`). Calls the ML service, persists results via `prediction_service.py`, and passes ML errors (e.g. 503 not trained) through to the caller. |
 | `microservices/backend-api/app/models/sensor.py` | SQLAlchemy model defining the `sensor_readings` table schema (`SensorReading`). Used by database.py and imported by routes to query/insert data. |
+| `microservices/backend-api/app/models/prediction.py` | SQLAlchemy model defining the `predictions` table schema (`Prediction`). Stores ML anomaly results so they survive ML restarts and are queryable by the dashboard. |
 | `microservices/backend-api/app/schemas/sensor.py` | Request/response schemas for validating JSON payloads and serialising responses. (TBD) |
 | `microservices/backend-api/app/services/sensor_service.py` | Business logic for sensor data. May use PySpark for data transformations and aggregations. (TBD) |
-| `microservices/backend-api/app/services/ml_client.py` | HTTP client that sends data to the ML microservice and receives prediction results back. (TBD) |
+| `microservices/backend-api/app/services/ml_client.py` | HTTP client that sends readings to the ML microservice (`/api/predict`, `/api/predict/batch`) and returns the prediction results. |
+| `microservices/backend-api/app/services/prediction_service.py` | Persists a prediction result into the `predictions` table (`store_prediction`) and serialises rows for API responses (`prediction_to_json`). |
 | `microservices/backend-api/Dockerfile` | Tells Docker how to build the backend container — installs dependencies, copies code, runs the app. |
 | `microservices/backend-api/requirements.txt` | Lists all Python packages the project needs (Flask, SQLAlchemy, etc.). |
-| `microservices/ml-service/app/main.py` | Flask app entry point for ML Service. Registers prediction blueprints. (TBD) |
-| `microservices/ml-service/app/config.py` | Stores model path and ML framework settings. Loaded from environment variables. (TBD) |
-| `microservices/ml-service/app/routers/prediction.py` | Defines Flask Blueprint with prediction endpoints (`POST /api/predict`, `POST /api/predict/batch`). (TBD) |
-| `microservices/ml-service/app/services/model_service.py` | Contains the scikit-learn **IsolationForest** anomaly-detection prototype (training, threshold checks, and a `predict()` function) developed in a notebook style. Needs refactoring into a production Flask service. |
+| `microservices/ml-service/app/main.py` | Flask app entry point for ML Service. Trains the IsolationForest model at startup when the cleaned dataset exists, otherwise starts idle and reports `model_ready: false`; registers the prediction blueprint. |
+| `microservices/ml-service/app/config.py` | Stores dataset path, IsolationForest hyperparameters, and alert thresholds. All values overridable via environment variables (e.g. `DATASET_PATH`). |
+| `microservices/ml-service/app/routers/prediction.py` | Defines Flask Blueprint with prediction endpoints (`POST /api/predict`, `POST /api/predict/batch`). Retries lazy training on demand and returns 503 with an actionable message when no dataset is available yet. |
+| `microservices/ml-service/app/services/model_service.py` | Contains the scikit-learn **IsolationForest** anomaly-detection logic: `load_dataset()` reads the cleaned CSV, `train_model()` fits the forest, `check_thresholds()` flags readings, and `predict()` returns anomaly score, severity, and alerts. |
 | `microservices/ml-service/Dockerfile` | Container definition for ML Service. |
 | `microservices/ml-service/requirements.txt` | Python dependencies for ML Service (Flask + ML framework TBD). |
 | `microservices/notification-service/app/main.py` | Single-file Flask app for the Notification Service. Checks readings against 3 thresholds (temperature > 39, humidity > 55, air_quality <= 2), sends Telegram alerts via the Telegram Bot API, and keeps the 50 most recent alerts in memory for the dashboard (`GET /api/alerts`). |
@@ -245,6 +252,7 @@ in which case they are relative to the service folder inside `microservices/`.
 | `microservices/data-ingestion-service/Dockerfile` | Container definition for Data Ingestion Service. |
 | `microservices/data-ingestion-service/requirements.txt` | Python dependencies for Data Ingestion Service (Flask, requests, pandas). |
 | `microservices/database/init.sql` | SQL script that runs when PostgreSQL starts. Creates tables. |
+| `microservices/database/Dockerfile` | Builds the `dataset-seed` image used by a Kubernetes init container to copy `sensor_data.example.csv` into the shared dataset PVC. Build with `docker build -t dataset-seed:latest microservices/database`. |
 | `microservices/database/sensor_data.example.csv` | Raw sensor data (ground truth) used by the ingestion pipeline. |
 | `microservices/frontend/html/dashboard.html` | Dashboard page markup. |
 | `microservices/frontend/css/styles.css` | Dashboard styling. |
@@ -252,7 +260,7 @@ in which case they are relative to the service folder inside `microservices/`.
 | `microservices/sensor/sensor_simulator.py` | Simulates an IoT sensor by replaying `sensor_data.csv` row by row and posting each reading to the Data Ingestion Service via REST, one record every few seconds. |
 | `microservices/sensor/Dockerfile` | Container definition for the Sensor Simulator. No exposed port — it only makes outgoing requests. |
 | `microservices/sensor/requirements.txt` | Python dependencies for the Sensor Simulator (pandas, requests). |
-| `k8s/*.yaml` | Kubernetes deployment manifests. Define how each microservice is deployed, exposed, and configured in a cluster. |
+| `k8s/*.yaml` | Kubernetes deployment manifests. Define how each microservice is deployed, exposed, and configured in a cluster. `k8s/database/pvc.yaml` declares the shared dataset volume both ingestion and ML mount. |
 
 ### Key Concept: Blueprints
 
@@ -262,7 +270,7 @@ This applies to the services that keep the `app/` split (Backend API, Data
 Ingestion Service, and eventually the ML Service).
 
 - `microservices/backend-api/app/routers/sensor.py` → Defines `sensor_bp` with sensor routes
-- `microservices/backend-api/app/routers/prediction.py` → Defines `prediction_bp` with prediction routes (TBD)
+- `microservices/backend-api/app/routers/prediction.py` → Defines `prediction_bp` with prediction routes
 
 These blueprints are then **registered** onto the Flask app in `main.py`:
 
@@ -297,8 +305,8 @@ This keeps routes organised by feature instead of having everything in one file.
 |                  |                 | balancing across microservices.                          |
 | Frontend         | HTML/CSS/JS + Chart.js | Static dashboard served to the browser; polls the |
 |                  |                 | Backend API and Notification Service via REST.           |
-| ML Service       | scikit-learn    | IsolationForest prototype implemented; needs            |
-|                  | (IsolationForest)| production refactor and serving approach decision.       |
+| ML Service       | scikit-learn    | IsolationForest trained on the cleaned dataset; lazy training,     |
+|                  | (IsolationForest)| `model_ready` health flag, and 503 until data is available.        |
 | Notifications    | Telegram Bot API | Alerts pushed to a Telegram chat; configured via         |
 |                  |                 | environment variables (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`). |
 
@@ -313,8 +321,20 @@ This keeps routes organised by feature instead of having everything in one file.
   over-engineering; same code runs locally and in Docker
 - **Ingestion service cleans and forwards** — Cleaning happens in the ingestion
   service, not in SQL; keeps data flow consistent with microservice architecture
-- **Ingestion creates `sensor_data_cleaned.csv`** — Only exists after running the
-  ingestion service; not committed to the repo
+- **Ingestion creates `sensor_data_cleaned.csv`** — Only exists after data is
+  registered via `POST /api/ingest/file`; not committed to the repo
+- **No data is cleaned at startup** — Ingestion starts "empty" to simulate a
+  deployment that begins with no raw data; the cleaned dataset is produced on
+  demand when data is registered
+- **ML trains on the cleaned dataset** — The ML service never touches raw data;
+  it reads `sensor_data_cleaned.csv`, keeping a single source of cleaning truth
+- **ML trains lazily** — If no cleaned dataset exists at startup, the ML service
+  starts idle (`model_ready: false`), retries training on the first prediction
+  request, and returns 503 with an actionable message until data is available.
+  This keeps the services loosely coupled
+- **Predictions are persisted in the backend** — The ML service is stateless
+  (in-memory model), so results are stored in the `predictions` table by the
+  Backend API and served to the dashboard via `GET /api/predictions`
 
 ### Database
 - **`init.sql` creates table only, no seeding** — Ingestion service handles data
@@ -340,6 +360,14 @@ how you run the service. No duplication, no sync issues.
 ### Docker & Deployment
 - **`depends_on` for startup order** — Database → Backend API → Ingestion
   service ensures services connect in the right sequence
+- **Shared dataset volume** — `./microservices/database` is bind-mounted as
+  `/data` into both ingestion and ML containers, so the raw file, the cleaned
+  output, and the trained model inputs all stay in one place
+- **Kubernetes dataset storage** — The same shared folder is represented in
+  k8s by the `dataset-pvc` (see `k8s/database/pvc.yaml`). Both deployments
+  mount it at `/data`; the ingestion pod seeds the raw example file into it
+  via the `dataset-seed` init container. Apply order:
+  `kubectl apply -f k8s/database/pvc.yaml` first, then the service manifests
 
 ---
 
@@ -352,8 +380,8 @@ how you run the service. No duplication, no sync issues.
 | Frontend            | Notification Service | REST/HTTP | Checks latest reading against thresholds, shows alerts |
 | Data Ingestion      | Backend API       | REST/HTTP | Send sensor data for processing  |
 | Backend API         | PostgreSQL        | SQL       | Data persistence & retrieval     |
-| Backend API         | ML Service        | REST/HTTP | Anomaly prediction requests (TBD)|
-| ML Service          | Backend API       | REST/HTTP | Prediction results returned (TBD)|
+| Backend API         | ML Service        | REST/HTTP | Anomaly prediction requests (`/api/predict`, `/api/predict/batch`) |
+| ML Service          | Backend API       | REST/HTTP | Prediction results returned (score, severity, alerts) |
 | Backend API         | Notification Service | REST/HTTP | Trigger alerts on anomalies (TBD) |
 
 ---
@@ -363,7 +391,7 @@ how you run the service. No duplication, no sync issues.
 | Service                | Port | Notes                              |
 |------------------------|------|------------------------------------|
 | Backend API            | 5000 | Flask default, central API layer   |
-| ML Service             | 5001 | Anomaly detection (TBD)            |
+| ML Service             | 5001 | Anomaly detection (lazy-trained IsolationForest) |
 | Notification Service   | 5002 | Alert processing (Telegram)        |
 | Data Ingestion Service | 5003 | CSV/JSON sensor data intake        |
 | PostgreSQL             | 5432 | Database                           |
@@ -422,16 +450,13 @@ The following items have **not yet been finalised** and are subject to change:
    IoT streaming remain possible future inputs.
    I chose wk2 dataset because it shows the exact same inferential conclusion as wk 3 dataset and it is not as heavily loaded compared to wk 3 dataset.
 
-3. **ML Service API Contract** — The interface between Backend API and ML
-   Service needs to be defined collaboratively before integration. The
-   `routers/prediction.py` files on both sides are stubs.
-
-4. **ML Service Productionisation** — The IsolationForest prototype in
-   `model_service.py` is notebook-style (trains at import time, runs an
-   embedded server). It needs refactoring into a proper Flask blueprint that
-   loads a persisted model and serves predictions.
-
-5. **Frontend Serving** — The dashboard is built (static HTML/CSS/JS), but
+3. **Frontend Serving** — The dashboard is built (static HTML/CSS/JS), but
    how it is served and containerised is still open.
+
+4. **Live Sensor → Ingestion link** — The sensor simulator posts to
+   `/api/ingest/reading`, but ingestion currently only exposes
+   `/api/ingest/file`. Wiring the simulator to register readings live (and
+   accumulate them into the dataset) is future work; today data is registered
+   by posting the raw file once.
 
 ---
