@@ -20,9 +20,11 @@ services:
     ports:
       - "5002:5002"
     environment:
-      - SMTP_HOST=smtp.gmail.com
-      - SMTP_PORT=587
-      - ALERT_THRESHOLD=0.8
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - TEMP_THRESHOLD=39
+      - HUMIDITY_THRESHOLD=55
+      - AQ_THRESHOLD=2
 
   data-ingestion-service:
     build: ./microservices/data-ingestion-service

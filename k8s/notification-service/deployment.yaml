@@ -22,4 +22,6 @@ spec:
           envFrom:
             - configMapRef:
                 name: notification-service-config
+            - secretRef:
+                name: telegram-credentials
           # TODO: Add resource limits, readiness/liveness probes

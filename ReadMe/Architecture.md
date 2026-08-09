@@ -77,6 +77,7 @@ EGT307_T2_Bacon/
 │   │   │       ├── __init__.py
 │   │   │       ├── sensor_service.py  # Sensor business logic (TBD)
 │   │   │       ├── ml_client.py       # ML service HTTP client
+│   │   │       ├── notification_client.py  # Notification service HTTP client
 │   │   │       └── prediction_service.py  # Prediction persistence helpers
 │   │   ├── tests/
 │   │   │   └── __init__.py
@@ -148,7 +149,8 @@ EGT307_T2_Bacon/
     ├── notification-service/
     │   ├── deployment.yaml
     │   ├── service.yaml
-    │   └── configmap.yaml
+    │   ├── configmap.yaml          # thresholds (non-secret)
+    │   └── secret.example.yaml     # Telegram credentials template (placeholder)
     ├── data-ingestion-service/
     │   ├── deployment.yaml
     │   ├── service.yaml
@@ -233,7 +235,8 @@ in which case they are relative to the service folder inside `microservices/`.
 | `microservices/backend-api/app/schemas/sensor.py` | Request/response schemas for validating JSON payloads and serialising responses. (TBD) |
 | `microservices/backend-api/app/services/sensor_service.py` | Business logic for sensor data. May use PySpark for data transformations and aggregations. (TBD) |
 | `microservices/backend-api/app/services/ml_client.py` | HTTP client that sends readings to the ML microservice (`/api/predict`, `/api/predict/batch`) and returns the prediction results. |
-| `microservices/backend-api/app/services/prediction_service.py` | Persists a prediction result into the `predictions` table (`store_prediction`) and serialises rows for API responses (`prediction_to_json`). |
+| `microservices/backend-api/app/services/notification_client.py` | HTTP client that POSTs anomalous readings to the Notification microservice (`/api/notify`). Best-effort: never raises, so an unavailable notification service cannot break prediction storage. |
+| `microservices/backend-api/app/services/prediction_service.py` | Persists a prediction result into the `predictions` table (`store_prediction`) and serialises rows for API responses (`prediction_to_json`). When a stored prediction is an anomaly, it triggers the Notification Service (best-effort). |
 | `microservices/backend-api/Dockerfile` | Tells Docker how to build the backend container — installs dependencies, copies code, runs the app. |
 | `microservices/backend-api/requirements.txt` | Lists all Python packages the project needs (Flask, SQLAlchemy, etc.). |
 | `microservices/ml-service/app/main.py` | Flask app entry point for ML Service. Trains the IsolationForest model at startup when the cleaned dataset exists, otherwise starts idle and reports `model_ready: false`; registers the prediction blueprint. |
@@ -242,7 +245,7 @@ in which case they are relative to the service folder inside `microservices/`.
 | `microservices/ml-service/app/services/model_service.py` | Contains the scikit-learn **IsolationForest** anomaly-detection logic: `load_dataset()` reads the cleaned CSV, `train_model()` fits the forest, `check_thresholds()` flags readings, and `predict()` returns anomaly score, severity, and alerts. |
 | `microservices/ml-service/Dockerfile` | Container definition for ML Service. |
 | `microservices/ml-service/requirements.txt` | Python dependencies for ML Service (Flask + ML framework TBD). |
-| `microservices/notification-service/app/main.py` | Single-file Flask app for the Notification Service. Checks readings against 3 thresholds (temperature > 39, humidity > 55, air_quality <= 2), sends Telegram alerts via the Telegram Bot API, and keeps the 50 most recent alerts in memory for the dashboard (`GET /api/alerts`). |
+| `microservices/notification-service/app/main.py` | Single-file Flask app for the Notification Service. Accepts readings via `POST /api/notify`: when the payload includes the ML model's `alerts` list it sends those verbatim, otherwise it derives them from the 3 env-configurable thresholds (`TEMP_THRESHOLD` 39, `HUMIDITY_THRESHOLD` 55, `AQ_THRESHOLD` 2). Sends Telegram alerts via the Telegram Bot API using `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` env vars, and keeps the 50 most recent alerts in memory for the dashboard (`GET /api/alerts`). |
 | `microservices/notification-service/Dockerfile` | Container definition for Notification Service. |
 | `microservices/notification-service/requirements.txt` | Python dependencies for Notification Service (Flask, requests). |
 | `microservices/data-ingestion-service/app/main.py` | Flask app entry point for Data Ingestion Service. Registers ingestion blueprints. |
@@ -256,7 +259,7 @@ in which case they are relative to the service folder inside `microservices/`.
 | `microservices/database/sensor_data.example.csv` | Raw sensor data (ground truth) used by the ingestion pipeline. |
 | `microservices/frontend/html/dashboard.html` | Dashboard page markup. |
 | `microservices/frontend/css/styles.css` | Dashboard styling. |
-| `microservices/frontend/js/dashboard.js` | Dashboard logic. Polls the Backend API for sensor readings and the Notification Service for alerts, renders charts with Chart.js. |
+| `microservices/frontend/js/dashboard.js` | Dashboard logic. Polls the Backend API for sensor readings and predictions (coloring anomalous points red) and the Notification Service's `GET /api/alerts` for the alert panel, renders charts with Chart.js. |
 | `microservices/sensor/sensor_simulator.py` | Simulates an IoT sensor by replaying `sensor_data.csv` row by row and posting each reading to the Data Ingestion Service via REST, one record every few seconds. |
 | `microservices/sensor/Dockerfile` | Container definition for the Sensor Simulator. No exposed port — it only makes outgoing requests. |
 | `microservices/sensor/requirements.txt` | Python dependencies for the Sensor Simulator (pandas, requests). |
@@ -336,6 +339,31 @@ This keeps routes organised by feature instead of having everything in one file.
   (in-memory model), so results are stored in the `predictions` table by the
   Backend API and served to the dashboard via `GET /api/predictions`
 
+### Notifications
+- **Backend triggers on ML anomalies** — The notification service is only
+  called by the Backend API when the ML model flags a reading as anomalous
+  (`store_prediction`). One notification per anomalous reading — rare events
+  in an early-warning system must not be delayed or coalesced away
+- **ML alert messages win** — The backend passes the ML model's `alerts` list
+  with the reading, so Telegram text always matches what the model flagged.
+  Direct callers (e.g. the dashboard) may omit it and the notification service
+  derives messages from its own thresholds
+- **Defaults in code, overrides in config** — Each threshold is read as
+  `os.environ.get("<NAME>", "<default>")`, so the service works standalone
+  with the built-in values (39 / 55 / 2). The compose file and k8s ConfigMap
+  set the same numbers explicitly to override per deployment, keeping
+  behaviour identical whether or not environment variables are set
+- **Thresholds are config, credentials are secrets** — `TEMP_THRESHOLD`,
+  `HUMIDITY_THRESHOLD`, `AQ_THRESHOLD` live in the compose file / k8s
+  ConfigMap. `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are injected from a
+  local `.env` for compose (git-ignored) or a k8s `Secret`
+  (`k8s/notification-service/secret.example.yaml` is a placeholder template;
+  create the real one with `kubectl create secret generic telegram-credentials
+  --from-literal=TELEGRAM_BOT_TOKEN=... --from-literal=TELEGRAM_CHAT_ID=...`)
+- **Dashboard only reads alerts** — `GET /api/alerts` drives the alert panel;
+  the dashboard never POSTs `/api/notify`, so polling cannot spam Telegram
+  with duplicates for the same reading
+
 ### Database
 - **`init.sql` creates table only, no seeding** — Ingestion service handles data
   flow; DB schema stays clean and independent of data volume
@@ -377,12 +405,12 @@ how you run the service. No duplication, no sync issues.
 |---------------------|-------------------|-----------|----------------------------------|
 | Sensor Simulator    | Data Ingestion    | REST/HTTP | Replay one sensor reading at a time |
 | Frontend            | Backend API       | REST/HTTP | User requests, data display      |
-| Frontend            | Notification Service | REST/HTTP | Checks latest reading against thresholds, shows alerts |
+| Frontend            | Notification Service | REST/HTTP | Reads recent alerts for the alert panel (`GET /api/alerts`) |
 | Data Ingestion      | Backend API       | REST/HTTP | Send sensor data for processing  |
 | Backend API         | PostgreSQL        | SQL       | Data persistence & retrieval     |
 | Backend API         | ML Service        | REST/HTTP | Anomaly prediction requests (`/api/predict`, `/api/predict/batch`) |
 | ML Service          | Backend API       | REST/HTTP | Prediction results returned (score, severity, alerts) |
-| Backend API         | Notification Service | REST/HTTP | Trigger alerts on anomalies (TBD) |
+| Backend API         | Notification Service | REST/HTTP | Triggers `/api/notify` on ML-flagged anomalies |
 
 ---
 

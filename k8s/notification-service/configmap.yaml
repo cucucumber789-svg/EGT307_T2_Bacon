@@ -3,7 +3,6 @@ kind: ConfigMap
 metadata:
   name: notification-service-config
 data:
-  SMTP_HOST: "smtp.gmail.com"
-  SMTP_PORT: "587"
-  ALERT_THRESHOLD: "0.8"
-  # TODO: Add actual SMTP credentials via Secrets, not ConfigMap
+  TEMP_THRESHOLD: "39"
+  HUMIDITY_THRESHOLD: "55"
+  AQ_THRESHOLD: "2"
