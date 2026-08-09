@@ -13,6 +13,8 @@ Usage:
     from app.services.model_service import load_dataset, train_model, predict
 """
 
+import sys
+
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
@@ -127,3 +129,50 @@ def predict(model, entry_id, created_at, temperature, humidity, air_quality):
             "air_quality": air_quality,
         },
     }
+
+
+def _print_prediction(result):
+    print(
+        f"  entry_id={result['entry_id']} "
+        f"anomaly={result['is_anomaly']} "
+        f"score={result['anomaly_score']} "
+        f"severity={result['severity']} "
+        f"alerts={result['alerts']}"
+    )
+
+
+if __name__ == "__main__":
+    # Standalone mode: train and sanity-check the model without starting the
+    # Flask server. Mirrors the service's error handling - if the cleaned
+    # dataset does not exist yet, print the same not-trained message the
+    # API returns as a 503 and exit instead of crashing.
+    path = Config.DATASET_PATH
+    model = train_if_available(path)
+    if model is None:
+        print(
+            "Model not trained: no cleaned dataset available at "
+            f"{path}. Register data via the data-ingestion service first."
+        )
+        sys.exit(1)
+
+    df = load_dataset(path)
+    print("Sample predictions (first 3 dataset readings):")
+    for row in df.head(3).to_dict(orient="records"):
+        _print_prediction(predict(
+            model,
+            entry_id=row["entry_id"],
+            created_at=row["created_at"],
+            temperature=row["temperature"],
+            humidity=row["humidity"],
+            air_quality=row["air_quality"],
+        ))
+
+    print("\nSynthetic anomaly (40C / 80% / AQI 5):")
+    _print_prediction(predict(
+        model,
+        entry_id=-1,
+        created_at="2026-01-01T00:00:00+00:00",
+        temperature=40.0,
+        humidity=80.0,
+        air_quality=5,
+    ))

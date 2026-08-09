@@ -430,10 +430,23 @@ This reads `sensor_data.example.csv`, cleans it, and saves
 server or backend API required — useful for testing the cleaning pipeline
 independently.
 
+**ML Service (standalone):**
+```bash
+cd microservices/ml-service
+python -m app.services.model_service
+```
+
+This loads `sensor_data_cleaned.csv`, trains the IsolationForest, and prints
+sample predictions (first 3 dataset readings plus a synthetic anomaly) so the
+model can be sanity-checked without starting the server. It mirrors the
+service's error handling: if no cleaned dataset exists yet, it prints the same
+not-trained message the API returns as a 503 and exits instead of crashing.
+
 **Key design principle:** Services are built as importable modules first,
 standalone scripts second. The `if __name__` block is minimal (calls the
-same functions the Flask router uses), ensuring local and Docker behaviour
-stay consistent.
+same functions the Flask router uses, including the shared
+`train_if_available` helper), ensuring local and Docker behaviour stay
+consistent.
 
 ---
 
