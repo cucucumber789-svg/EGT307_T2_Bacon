@@ -19,6 +19,11 @@ from flask import Flask, request, jsonify
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
+# Thresholds are config, not secrets - overridable per deployment.
+TEMP_THRESHOLD = float(os.environ.get("TEMP_THRESHOLD", "39"))
+HUMIDITY_THRESHOLD = float(os.environ.get("HUMIDITY_THRESHOLD", "55"))
+AQ_THRESHOLD = float(os.environ.get("AQ_THRESHOLD", "2"))
+
 # Alerts are kept here in memory so the dashboard can GET /api/alerts and
 # show them; simple on purpose, resets if the service restarts.
 recent_alerts = []
@@ -27,11 +32,11 @@ recent_alerts = []
 def check_conditions(temperature, humidity, air_quality):
     #"Compare one reading against the 3 thresholds, return the alert messages that apply."
     messages = []
-    if temperature > 39:
+    if temperature > TEMP_THRESHOLD:
         messages.append("High temperature detected!")
-    if humidity > 55:
+    if humidity > HUMIDITY_THRESHOLD:
         messages.append("High humidity detected!")
-    if air_quality <= 2:
+    if air_quality <= AQ_THRESHOLD:
         messages.append("Poor air quality detected!")
     return messages
 
@@ -41,7 +46,7 @@ def send_telegram(message):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("Telegram not configured, skipping send:", message)
         return
-    url = f"https://api.telegram.org/bot8861372458:AAHlC1HMhUJzSLoUlzMjLXdAjX-X7Cjw3F8/sendMessage"
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     try:
         requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": message}, timeout=5)
     except requests.exceptions.RequestException as e:
@@ -79,7 +84,11 @@ def create_app():
         humidity = float(data["humidity"])
         air_quality = float(data["air_quality"])
 
-        triggered = check_conditions(temperature, humidity, air_quality)
+        # When the Backend API triggers us, it passes the ML model's alert
+        # messages so Telegram text matches what the model flagged. A direct
+        # call (e.g. the dashboard) omits them and we derive them ourselves.
+        provided = data.get("alerts")
+        triggered = provided if provided else check_conditions(temperature, humidity, air_quality)
 
         for message in triggered:
             send_telegram(message)
