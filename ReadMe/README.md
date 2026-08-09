@@ -68,6 +68,13 @@ The Notification Service is used to send alerts when the system detects abnormal
 
 The Frontend Dashboard provides a user-friendly interface for monitoring environmental conditions. It displays sensor data, anomaly detection results, and historical trends by sending REST API requests to the Backend API. Users can easily view environmental status and receive alerts without directly interacting with the database.
 
+## Service Setup Guides
+
+Per-service documentation lives inside each service folder. To get the
+Notification Service working from scratch (Telegram bot setup, configuration,
+run modes, and troubleshooting), see
+[`microservices/notification-service/README.md`](../microservices/notification-service/README.md).
+
 ## Docker Containerization
 
 Each application component is packaged as a Docker container to provide a lightweight, portable, and consistent runtime environment across development, testing, and production. Docker eliminates dependency conflicts and ensures that the application behaves consistently regardless of the deployment platform.
