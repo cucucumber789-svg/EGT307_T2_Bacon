@@ -67,7 +67,11 @@ def create_app():
 
     @app.route("/")
     def health():
-        return jsonify({"status": "ok", "service": "notification-service"})
+        return jsonify({
+            "status": "ok",
+            "service": "notification-service",
+            "telegram_configured": bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID),
+        })
 
     @app.route("/api/notify", methods=["POST"])
     def notify():
@@ -112,5 +116,7 @@ def create_app():
 
 
 if __name__ == "__main__":
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("Telegram not configured - alerts will not be sent. See README 'First-time setup'.")
     app = create_app()
     app.run(host="0.0.0.0", port=5002)
