@@ -12,29 +12,29 @@ by **Docker** and **Kubernetes**.
 ## System Architecture (High-Level)
 
 ```
+┌─────────────────────┐   ┌─────────────────────┐
+│  Frontend Dashboard │   │   Sensor Simulator  │
+│  (HTML/CSS/JS)      │   │   (replays dataset) │
+└──────┬──────────────┘   └──────────┬──────────┘
+       │                             │ REST/HTTP
+       │ REST/HTTP                   ▼
+       ▼                     ┌──────────────────┐
+┌──────────────────┐   ┌────►│Data Ingestion    │
+│ Notification     │   │     │   Service        │
+│   Service        │   │     │(CSV/JSON intake) │
+│ (Telegram alerts)│   │     └────────┬─────────┘
+└──────────────────┘   │              │ REST/HTTP
+                       │              ▼
+┌─────────────────────┐│     ┌─────────────────────┐
+│   Backend API       │◄┘     │ PostgreSQL DB       │
+│   (Flask + PySpark) │◄──────►                     │
+└──────────┬──────────┘       └─────────────────────┘
+           │ REST/HTTP
+           ▼
 ┌─────────────────────┐
-│  Frontend Dashboard │
-│   (TBD)             │
-└────────┬────────────┘
-         │ REST API
-         ▼
-┌─────────────────────┐        ┌─────────────────────┐
-│   Backend API       │◄──────►│   ML Service        │
-│   (Flask + PySpark) │        │   (TBD)             │
-└────────┬────────────┘        └─────────────────────┘
-         │
-    ┌────┴────────────────────┐
-    ▼                         ▼
-┌──────────────────┐   ┌──────────────────┐
-│Data Ingestion    │   │ Notification     │
-│   Service        │   │   Service        │
-│(CSV/JSON intake) │   │ (email/SMS)      │
-└──────────────────┘   └──────────────────┘
-         │                         ▲
-         ▼                         │
-┌──────────────────┐               │
-│  PostgreSQL DB   │◄──────────────┘
-└──────────────────┘
+│   ML Service        │
+│ (IsolationForest)   │
+└─────────────────────┘
 ```
 
 All components are containerised with Docker and deployed via Kubernetes.
@@ -45,83 +45,93 @@ All components are containerised with Docker and deployed via Kubernetes.
 
 ```
 EGT307_T2_Bacon/
-├── README.md
-├── Architecture.md
-├── docker-compose.yml
+├── docker-compose.yml             # Local multi-service development
+├── sensor_data.csv                # Raw sensor dataset (ground truth)
+├── EGT307 PRESENTATION.pptx       # Project presentation
+├── EGT307_Contribution.docx       # Individual contribution breakdown
 │
-├── backend-api/                  # BACKEND API — Flask + PySpark
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py              # Flask app entry point
-│   │   ├── config.py            # Environment-based configuration
-│   │   ├── database.py          # SQLAlchemy engine + session
-│   │   ├── spark_session.py     # Spark session initialisation
-│   │   ├── models/
-│   │   │   ├── __init__.py
-│   │   │   └── sensor.py        # Sensor data model
-│   │   ├── schemas/
-│   │   │   ├── __init__.py
-│   │   │   └── sensor.py        # Request/response schemas
-│   │   ├── routers/
-│   │   │   ├── __init__.py
-│   │   │   ├── sensor.py        # Sensor CRUD routes
-│   │   │   └── prediction.py    # Prediction routes
-│   │   └── services/
-│   │       ├── __init__.py
-│   │       ├── sensor_service.py  # Sensor business logic
-│   │       └── ml_client.py       # ML service HTTP client
-│   ├── tests/
-│   │   └── __init__.py
-│   ├── Dockerfile
-│   └── requirements.txt
+├── ReadMe/                        # Project documentation
+│   ├── README.md
+│   └── Architecture.md
 │
-├── ml-service/                   # ML SERVICE — anomaly detection (TBD)
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py              # Flask app entry point
-│   │   ├── config.py            # Model path and ML settings (TBD)
-│   │   ├── routers/
+├── microservices/                 # All services live under this folder
+│   ├── backend-api/               # BACKEND API — Flask + PySpark
+│   │   ├── app/
 │   │   │   ├── __init__.py
-│   │   │   └── prediction.py    # Prediction endpoints
-│   │   └── services/
-│   │       ├── __init__.py
-│   │       └── model_service.py # ML model loading and prediction (TBD)
-│   ├── Dockerfile
-│   └── requirements.txt
-│
-├── notification-service/         # NOTIFICATION SERVICE — alerts (email/SMS)
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py              # Flask app entry point
-│   │   ├── config.py            # SMTP and alert configuration
-│   │   ├── routers/
+│   │   │   ├── main.py            # Flask app entry point (create_app)
+│   │   │   ├── config.py          # Environment-based configuration
+│   │   │   ├── database.py        # SQLAlchemy engine + session
+│   │   │   ├── spark_session.py   # Spark session initialisation (TBD)
+│   │   │   ├── models/
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── sensor.py      # SensorReading SQLAlchemy model
+│   │   │   ├── schemas/
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── sensor.py      # Request/response schemas (TBD)
+│   │   │   ├── routers/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── sensor.py      # Sensor CRUD routes (implemented)
+│   │   │   │   └── prediction.py  # Prediction routes (TBD)
+│   │   │   └── services/
+│   │   │       ├── __init__.py
+│   │   │       ├── sensor_service.py  # Sensor business logic (TBD)
+│   │   │       └── ml_client.py       # ML service HTTP client (TBD)
+│   │   ├── tests/
+│   │   │   └── __init__.py
+│   │   ├── Dockerfile
+│   │   └── requirements.txt
+│   │
+│   ├── ml-service/                # ML SERVICE — anomaly detection
+│   │   ├── app/
 │   │   │   ├── __init__.py
-│   │   │   └── notification.py  # Alert endpoints
-│   │   └── services/
-│   │       ├── __init__.py
-│   │       └── alert_service.py # Email/SMS sending logic
-│   ├── Dockerfile
-│   └── requirements.txt
-│
-├── data-ingestion-service/       # DATA INGESTION SERVICE — sensor data intake
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py              # Flask app entry point
-│   │   ├── config.py            # Backend API URL configuration
-│   │   ├── routers/
+│   │   │   ├── main.py            # Flask app entry point (TBD)
+│   │   │   ├── config.py          # Model path and ML settings (TBD)
+│   │   │   ├── routers/
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── prediction.py  # Prediction endpoints (TBD)
+│   │   │   └── services/
+│   │   │       ├── __init__.py
+│   │   │       └── model_service.py # IsolationForest prototype (notebook-style)
+│   │   ├── Dockerfile
+│   │   └── requirements.txt
+│   │
+│   ├── notification-service/      # NOTIFICATION SERVICE — Telegram alerts
+│   │   ├── app/
 │   │   │   ├── __init__.py
-│   │   │   └── ingestion.py     # Data intake endpoints
-│   │   └── services/
-│   │       ├── __init__.py
-│   │       └── data_ingestion.py   # CSV parsing, cleaning, and forwarding
-│   ├── Dockerfile
-│   └── requirements.txt
-│
-├── frontend/                     # FRONTEND — TBD
-│
-├── database/                     # DATABASE — PostgreSQL init + sensor data
-│   ├── init.sql
-│   └── sensor_data.example.csv   # Raw sensor data (ground truth)
+│   │   │   └── main.py            # Single-file Flask app (thresholds + Telegram)
+│   │   ├── Dockerfile
+│   │   └── requirements.txt
+│   │
+│   ├── data-ingestion-service/    # DATA INGESTION SERVICE — sensor data intake
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   ├── main.py            # Flask app entry point
+│   │   │   ├── config.py          # Backend API URL + DATA_DIR configuration
+│   │   │   ├── routers/
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── ingestion.py   # Data intake endpoints
+│   │   │   └── services/
+│   │   │       ├── __init__.py
+│   │   │       └── data_ingestion.py   # CSV parsing, cleaning, and forwarding
+│   │   ├── Dockerfile
+│   │   └── requirements.txt
+│   │
+│   ├── database/                  # DATABASE — PostgreSQL init + sensor data
+│   │   ├── init.sql
+│   │   └── sensor_data.example.csv   # Raw sensor data (ground truth)
+│   │
+│   ├── frontend/                  # FRONTEND — dashboard (HTML/CSS/JS + Chart.js)
+│   │   ├── css/
+│   │   │   └── styles.css
+│   │   ├── html/
+│   │   │   └── dashboard.html
+│   │   └── js/
+│   │       └── dashboard.js
+│   │
+│   └── sensor/                    # SENSOR SIMULATOR — replays dataset as IoT stream
+│       ├── sensor_simulator.py
+│       ├── Dockerfile
+│       └── requirements.txt
 │
 └── k8s/                          # KUBERNETES — deployment manifests
     ├── backend-api/
@@ -140,8 +150,8 @@ EGT307_T2_Bacon/
     │   ├── deployment.yaml
     │   ├── service.yaml
     │   └── configmap.yaml
-    ├── database/
-    └── frontend/
+    ├── database/                  # (empty placeholder)
+    └── frontend/                  # (empty placeholder)
 ```
 
 ---
@@ -160,10 +170,10 @@ directory and cannot import from it.
 **Example:**
 ```python
 # Without __init__.py — this fails:
-from app.models.sensor import Sensor
+from app.models.sensor import SensorReading
 
 # With __init__.py — this works:
-from app.models.sensor import Sensor
+from app.models.sensor import SensorReading
 ```
 
 The file can be **empty** (just acts as a marker) or used to expose commonly
@@ -171,69 +181,88 @@ imported items for convenience.
 
 ### How the Files Connect
 
+All services live under `microservices/`. The Backend API is the largest
+service and still uses the full `app/` split:
+
 ```
-main.py  (entry point — starts the app)
+microservices/backend-api/app/main.py  (entry point — starts the app)
   ├── imports config.py          (reads environment variables)
   ├── imports database.py        (connects to PostgreSQL)
-  ├── imports spark_session.py   (creates Spark session)
-  ├── registers routers/sensor.py      (adds /api/sensors routes)
-  └── registers routers/prediction.py  (adds /api/predict routes)
+  ├── imports spark_session.py   (creates Spark session)   (TBD)
+  └── registers routers/sensor.py      (adds /api/sensors routes)
 
 routers/sensor.py  (handles HTTP requests)
   ├── imports models/sensor.py   (to read/write sensor data in DB)
-  ├── imports schemas/sensor.py  (to validate incoming JSON)
-  └── imports services/sensor_service.py (to process data)
+  ├── imports schemas/sensor.py  (to validate incoming JSON)   (TBD)
+  └── imports services/sensor_service.py (to process data)     (TBD)
 
-routers/prediction.py  (handles prediction requests)
-  ├── imports services/ml_client.py (to call ML microservice)
-  └── imports services/sensor_service.py (to fetch sensor data)
+routers/prediction.py  (handles prediction requests)            (TBD)
+  ├── imports services/ml_client.py (to call ML microservice)   (TBD)
+  └── imports services/sensor_service.py (to fetch sensor data) (TBD)
 ```
+
+The Notification Service takes a simpler shape: it is a **single-file app** —
+`app/main.py` contains the Flask routes, the threshold checks, and the
+Telegram sending logic all in one place. The Data Ingestion Service keeps the
+`app/` split but is smaller than the Backend API. The ML Service entry points
+(`main.py`, `config.py`, `routers/prediction.py`) are stubs; the working
+anomaly-detection prototype lives in `app/services/model_service.py`.
 
 ### File-by-File Explanation
 
+Paths below are relative to the repo root unless marked `(relative to service)`,
+in which case they are relative to the service folder inside `microservices/`.
+
 | File | Purpose |
 |------|---------|
-| `main.py` | Flask app entry point. Creates the app, registers blueprints (routers), and starts the server. This is the first file that runs. |
-| `config.py` | Stores all configuration (database URL, ML service URL, etc.) loaded from environment variables. Keeps secrets out of code. |
-| `database.py` | Creates the SQLAlchemy engine and session. Other files import `SessionLocal` to query or insert data into PostgreSQL. |
-| `spark_session.py` | Creates and returns a PySpark `SparkSession`. Services import this to run Spark data processing operations. |
-| `routers/sensor.py` | Defines Flask Blueprint with sensor endpoints (`GET /api/sensors`, `POST /api/sensors`). Receives HTTP requests and delegates logic to services. |
-| `routers/prediction.py` | Defines Flask Blueprint with prediction endpoints (`POST /api/predict`). Calls ML service and returns anomaly results. |
-| `models/sensor.py` | SQLAlchemy model defining the `sensors` table schema. Used by database.py and imported by routes to query/insert data. |
-| `schemas/sensor.py` | Pydantic schemas for validating request bodies and formatting responses. Ensures API input/output is consistent. |
-| `services/sensor_service.py` | Business logic for sensor data. May use PySpark for data transformations and aggregations. |
-| `services/ml_client.py` | HTTP client that sends data to the ML microservice and receives prediction results back. |
-| `Dockerfile` | Tells Docker how to build the backend container — installs dependencies, copies code, runs the app. |
-| `requirements.txt` | Lists all Python packages the project needs (Flask, SQLAlchemy, PySpark, etc.). |
-| `docker-compose.yml` | Defines all services (backend, database) and how they run together locally. One command starts everything. |
-| `database/init.sql` | SQL script that runs when PostgreSQL starts. Creates tables and seeds initial data. |
+| `docker-compose.yml` | Defines all services (backend, ML, notification, ingestion, database) and how they run together locally. One command starts everything. The Sensor Simulator and Frontend are not yet defined here. |
+| `sensor_data.csv` | Raw sensor dataset (ground truth) that the Sensor Simulator replays. |
+| `microservices/backend-api/app/main.py` | Flask app entry point. Creates the app, registers blueprints (routers), and starts the server. This is the first file that runs. |
+| `microservices/backend-api/app/config.py` | Stores all configuration (database URL, ML service URL, etc.) loaded from environment variables. Keeps secrets out of code. |
+| `microservices/backend-api/app/database.py` | Creates the SQLAlchemy engine and session. Other files import `SessionLocal` to query or insert data into PostgreSQL. |
+| `microservices/backend-api/app/spark_session.py` | Creates and returns a PySpark `SparkSession`. Services import this to run Spark data processing operations. (TBD) |
+| `microservices/backend-api/app/routers/sensor.py` | Defines Flask Blueprint with sensor endpoints (`GET /api/sensors`, `GET /api/sensors/count`, `POST /api/sensors`, `POST /api/sensors/batch`). Receives HTTP requests and queries/inserts directly into the DB. |
+| `microservices/backend-api/app/routers/prediction.py` | Defines Flask Blueprint with prediction endpoints (`POST /api/predict`). Calls ML service and returns anomaly results. (TBD) |
+| `microservices/backend-api/app/models/sensor.py` | SQLAlchemy model defining the `sensor_readings` table schema (`SensorReading`). Used by database.py and imported by routes to query/insert data. |
+| `microservices/backend-api/app/schemas/sensor.py` | Request/response schemas for validating JSON payloads and serialising responses. (TBD) |
+| `microservices/backend-api/app/services/sensor_service.py` | Business logic for sensor data. May use PySpark for data transformations and aggregations. (TBD) |
+| `microservices/backend-api/app/services/ml_client.py` | HTTP client that sends data to the ML microservice and receives prediction results back. (TBD) |
+| `microservices/backend-api/Dockerfile` | Tells Docker how to build the backend container — installs dependencies, copies code, runs the app. |
+| `microservices/backend-api/requirements.txt` | Lists all Python packages the project needs (Flask, SQLAlchemy, etc.). |
+| `microservices/ml-service/app/main.py` | Flask app entry point for ML Service. Registers prediction blueprints. (TBD) |
+| `microservices/ml-service/app/config.py` | Stores model path and ML framework settings. Loaded from environment variables. (TBD) |
+| `microservices/ml-service/app/routers/prediction.py` | Defines Flask Blueprint with prediction endpoints (`POST /api/predict`, `POST /api/predict/batch`). (TBD) |
+| `microservices/ml-service/app/services/model_service.py` | Contains the scikit-learn **IsolationForest** anomaly-detection prototype (training, threshold checks, and a `predict()` function) developed in a notebook style. Needs refactoring into a production Flask service. |
+| `microservices/ml-service/Dockerfile` | Container definition for ML Service. |
+| `microservices/ml-service/requirements.txt` | Python dependencies for ML Service (Flask + ML framework TBD). |
+| `microservices/notification-service/app/main.py` | Single-file Flask app for the Notification Service. Checks readings against 3 thresholds (temperature > 39, humidity > 55, air_quality <= 2), sends Telegram alerts via the Telegram Bot API, and keeps the 50 most recent alerts in memory for the dashboard (`GET /api/alerts`). |
+| `microservices/notification-service/Dockerfile` | Container definition for Notification Service. |
+| `microservices/notification-service/requirements.txt` | Python dependencies for Notification Service (Flask, requests). |
+| `microservices/data-ingestion-service/app/main.py` | Flask app entry point for Data Ingestion Service. Registers ingestion blueprints. |
+| `microservices/data-ingestion-service/app/config.py` | Stores Backend API URL, `DATA_DIR`, and allowed file formats loaded from environment variables. |
+| `microservices/data-ingestion-service/app/routers/ingestion.py` | Defines Flask Blueprint with data intake endpoints (`POST /api/ingest/file`). Accepts CSV/JSON sensor data. |
+| `microservices/data-ingestion-service/app/services/data_ingestion.py` | Parses raw CSV sensor data (drop columns, rename, coerce types, drop NaN), saves cleaned output to `sensor_data_cleaned.csv`, and forwards records to the Backend API. Also runnable standalone (`python -m app.services.data_ingestion`). |
+| `microservices/data-ingestion-service/Dockerfile` | Container definition for Data Ingestion Service. |
+| `microservices/data-ingestion-service/requirements.txt` | Python dependencies for Data Ingestion Service (Flask, requests, pandas). |
+| `microservices/database/init.sql` | SQL script that runs when PostgreSQL starts. Creates tables. |
+| `microservices/database/sensor_data.example.csv` | Raw sensor data (ground truth) used by the ingestion pipeline. |
+| `microservices/frontend/html/dashboard.html` | Dashboard page markup. |
+| `microservices/frontend/css/styles.css` | Dashboard styling. |
+| `microservices/frontend/js/dashboard.js` | Dashboard logic. Polls the Backend API for sensor readings and the Notification Service for alerts, renders charts with Chart.js. |
+| `microservices/sensor/sensor_simulator.py` | Simulates an IoT sensor by replaying `sensor_data.csv` row by row and posting each reading to the Data Ingestion Service via REST, one record every few seconds. |
+| `microservices/sensor/Dockerfile` | Container definition for the Sensor Simulator. No exposed port — it only makes outgoing requests. |
+| `microservices/sensor/requirements.txt` | Python dependencies for the Sensor Simulator (pandas, requests). |
 | `k8s/*.yaml` | Kubernetes deployment manifests. Define how each microservice is deployed, exposed, and configured in a cluster. |
-| `notification-service/app/main.py` | Flask app entry point for Notification Service. Registers alert blueprints. |
-| `notification-service/app/config.py` | Stores SMTP email settings and alert configuration loaded from environment variables. |
-| `notification-service/app/routers/notification.py` | Defines Flask Blueprint with alert endpoints (`POST /api/notify`). Called by Backend API when anomalies detected. |
-| `notification-service/app/services/alert_service.py` | Handles sending email/SMS alerts. Includes retry logic for failed sends. |
-| `notification-service/Dockerfile` | Container definition for Notification Service. |
-| `notification-service/requirements.txt` | Python dependencies for Notification Service (Flask, requests). |
-| `data-ingestion-service/app/main.py` | Flask app entry point for Data Ingestion Service. Registers ingestion blueprints. |
-| `data-ingestion-service/app/config.py` | Stores Backend API URL and allowed file formats loaded from environment variables. |
-| `data-ingestion-service/app/routers/ingestion.py` | Defines Flask Blueprint with data intake endpoints (`POST /api/ingest`). Accepts CSV/JSON sensor data. |
-| `data-ingestion-service/app/services/data_ingestion.py` | Parses raw CSV sensor data (drop columns, rename, coerce types, drop NaN), saves cleaned output locally, and forwards records to Backend API. |
-| `data-ingestion-service/Dockerfile` | Container definition for Data Ingestion Service. |
-| `data-ingestion-service/requirements.txt` | Python dependencies for Data Ingestion Service (Flask, requests, pandas). |
-| `ml-service/app/main.py` | Flask app entry point for ML Service. Registers prediction blueprints. |
-| `ml-service/app/config.py` | Stores model path and ML framework settings (TBD). Loaded from environment variables. |
-| `ml-service/app/routers/prediction.py` | Defines Flask Blueprint with prediction endpoints (`POST /api/predict`). Receives sensor data and returns anomaly predictions. |
-| `ml-service/app/services/model_service.py` | Loads trained ML model, preprocesses input data, and runs predictions. Framework and format TBD. |
-| `ml-service/Dockerfile` | Container definition for ML Service. |
-| `ml-service/requirements.txt` | Python dependencies for ML Service (Flask + ML framework TBD). |
 
 ### Key Concept: Blueprints
 
 Blueprints are the routing system used in `routers/`. Each file inside
 `routers/` defines a Flask **Blueprint** — a group of related API endpoints.
+This applies to the services that keep the `app/` split (Backend API, Data
+Ingestion Service, and eventually the ML Service).
 
-- `routers/sensor.py` → Defines `sensor_bp` with sensor routes
-- `routers/prediction.py` → Defines `prediction_bp` with prediction routes
+- `microservices/backend-api/app/routers/sensor.py` → Defines `sensor_bp` with sensor routes
+- `microservices/backend-api/app/routers/prediction.py` → Defines `prediction_bp` with prediction routes (TBD)
 
 These blueprints are then **registered** onto the Flask app in `main.py`:
 
@@ -248,6 +277,9 @@ app.register_blueprint(prediction_bp)
 
 This keeps routes organised by feature instead of having everything in one file.
 
+> Note: the Notification Service does **not** use blueprints — it is a
+> single-file app where routes are defined directly in `app/main.py`.
+
 ---
 
 ## Technology Decisions
@@ -255,7 +287,7 @@ This keeps routes organised by feature instead of having everything in one file.
 | Component        | Technology      | Justification                                            |
 |------------------|-----------------|----------------------------------------------------------|
 | Backend API      | Flask + PySpark | Flask for lightweight HTTP; PySpark for large-scale      |
-|                  |                 | sensor data processing.                                  |
+|                  |                 | sensor data processing (Spark session TBD).              |
 | Database         | PostgreSQL      | Strong relational support for structured sensor data;    |
 |                  |                 | ACID compliance; mature tooling.                         |
 | ORM              | SQLAlchemy      | Standard Python ORM; decouples app logic from SQL.       |
@@ -263,8 +295,12 @@ This keeps routes organised by feature instead of having everything in one file.
 |                  |                 | startup via docker-compose.                              |
 | Orchestration    | Kubernetes      | Automated deployment, scaling, self-healing, and load    |
 |                  |                 | balancing across microservices.                          |
-| Frontend         | (TBD)           | To be decided by the frontend team member.               |
-| ML Service       | (TBD)           | To be co-developed; framework and model approach pending. |
+| Frontend         | HTML/CSS/JS + Chart.js | Static dashboard served to the browser; polls the |
+|                  |                 | Backend API and Notification Service via REST.           |
+| ML Service       | scikit-learn    | IsolationForest prototype implemented; needs            |
+|                  | (IsolationForest)| production refactor and serving approach decision.       |
+| Notifications    | Telegram Bot API | Alerts pushed to a Telegram chat; configured via         |
+|                  |                 | environment variables (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`). |
 
 ---
 
@@ -287,16 +323,19 @@ This keeps routes organised by feature instead of having everything in one file.
   source of truth for table schema
 
 ### Local Development vs Docker
-The `database/` folder is the single source of data for both environments.
-Docker's volume mount (`./database:/data`) maps the host folder to the
-container, so both environments read and write to the same files.
+The `microservices/database/` folder is the single source of data for both
+environments. Docker's volume mount (`./microservices/database:/data`) maps
+the host folder to the container, so both environments read and write to the
+same files.
 
-- **Local:** `Config.DATA_DIR` defaults to `../database` (relative path)
+- **Local:** `Config.DATA_DIR` defaults to `../database` (relative path; from
+  `microservices/data-ingestion-service/` this resolves to
+  `microservices/database/`)
 - **Docker:** `DATA_DIR=/data` env var overrides the default; volume mount
-  makes `/data` equivalent to `./database/` on the host
+  makes `/data` equivalent to `./microservices/database/` on the host
 
-This means cleaned output appears in `database/` regardless of how you run
-the service. No duplication, no sync issues.
+This means cleaned output appears in `microservices/database/` regardless of
+how you run the service. No duplication, no sync issues.
 
 ### Docker & Deployment
 - **`depends_on` for startup order** — Database → Backend API → Ingestion
@@ -308,12 +347,14 @@ the service. No duplication, no sync issues.
 
 | From                | To                | Protocol  | Purpose                          |
 |---------------------|-------------------|-----------|----------------------------------|
+| Sensor Simulator    | Data Ingestion    | REST/HTTP | Replay one sensor reading at a time |
 | Frontend            | Backend API       | REST/HTTP | User requests, data display      |
+| Frontend            | Notification Service | REST/HTTP | Checks latest reading against thresholds, shows alerts |
 | Data Ingestion      | Backend API       | REST/HTTP | Send sensor data for processing  |
 | Backend API         | PostgreSQL        | SQL       | Data persistence & retrieval     |
-| Backend API         | ML Service        | REST/HTTP | Anomaly prediction requests      |
-| ML Service          | Backend API       | REST/HTTP | Prediction results returned      |
-| Backend API         | Notification Service | REST/HTTP | Trigger alerts on anomalies   |
+| Backend API         | ML Service        | REST/HTTP | Anomaly prediction requests (TBD)|
+| ML Service          | Backend API       | REST/HTTP | Prediction results returned (TBD)|
+| Backend API         | Notification Service | REST/HTTP | Trigger alerts on anomalies (TBD) |
 
 ---
 
@@ -323,10 +364,11 @@ the service. No duplication, no sync issues.
 |------------------------|------|------------------------------------|
 | Backend API            | 5000 | Flask default, central API layer   |
 | ML Service             | 5001 | Anomaly detection (TBD)            |
-| Notification Service   | 5002 | Alert processing (email/SMS)       |
+| Notification Service   | 5002 | Alert processing (Telegram)        |
 | Data Ingestion Service | 5003 | CSV/JSON sensor data intake        |
 | PostgreSQL             | 5432 | Database                           |
-| Frontend               | 3000 | Dashboard UI (TBD)                 |
+| Frontend               | 3000 | Dashboard UI (served statically)   |
+| Sensor Simulator       | —    | No inbound port (outgoing requests only) |
 
 ---
 
@@ -351,13 +393,13 @@ starting the full Docker Compose stack. Each service module includes an
 
 **Data Ingestion (standalone):**
 ```bash
-cd data-ingestion-service
+cd microservices/data-ingestion-service
 python -m app.services.data_ingestion
 ```
 
 This reads `sensor_data.example.csv`, cleans it, and saves
-`sensor_data_cleaned.csv` to the `database/` folder. No Flask server
-or backend API required — useful for testing the cleaning pipeline
+`sensor_data_cleaned.csv` to the `microservices/database/` folder. No Flask
+server or backend API required — useful for testing the cleaning pipeline
 independently.
 
 **Key design principle:** Services are built as importable modules first,
@@ -373,18 +415,23 @@ The following items have **not yet been finalised** and are subject to change:
 
 1. **PySpark Usage Scope** — How Spark will be used in the backend is
    undecided. Options include batch aggregation, preprocessing for ML, or
-   running Spark MLlib models directly.
+   running Spark MLlib models directly. `spark_session.py` is currently a stub.
 
-2. **Sensor Data Input Format** — The format in which sensor data arrives
-   (CSV uploads, JSON API payloads, or IoT streaming) has not been determined.
+2. **Sensor Data Input Format** — The primary flow is now the Sensor
+   Simulator replaying the CSV dataset as JSON API payloads. CSV uploads and
+   IoT streaming remain possible future inputs.
    I chose wk2 dataset because it shows the exact same inferential conclusion as wk 3 dataset and it is not as heavily loaded compared to wk 3 dataset.
 
 3. **ML Service API Contract** — The interface between Backend API and ML
-   Service needs to be defined collaboratively before integration.
+   Service needs to be defined collaboratively before integration. The
+   `routers/prediction.py` files on both sides are stubs.
 
-4. **ML Service Technology Stack** — The ML microservice's framework, model
-   format, and serving approach are yet to be decided.
+4. **ML Service Productionisation** — The IsolationForest prototype in
+   `model_service.py` is notebook-style (trains at import time, runs an
+   embedded server). It needs refactoring into a proper Flask blueprint that
+   loads a persisted model and serves predictions.
 
-5. **Frontend Framework** — The frontend dashboard framework is pending team decision.
+5. **Frontend Serving** — The dashboard is built (static HTML/CSS/JS), but
+   how it is served and containerised is still open.
 
 ---
