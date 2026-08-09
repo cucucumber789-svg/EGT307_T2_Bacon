@@ -53,8 +53,11 @@ services:
     ports:
       - "5001:5001"
     environment:
-      - MODEL_PATH=/app/models/trained_model
-      # MODEL_FORMAT and ML_FRAMEWORK TBD
+      - DATASET_PATH=/data/sensor_data_cleaned.csv
+    volumes:
+      - ./microservices/database:/data
+    depends_on:
+      - data-ingestion-service
 
   # frontend:
   #   build: ./microservices/frontend
