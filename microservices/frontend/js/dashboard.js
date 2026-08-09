@@ -1,13 +1,17 @@
 /**
  * Dashboard logic - Bacon.Inc Environmental Monitoring Station
  *
- * Talks to Backend API for sensor data (and best-effort predictions), and
- * to Notification Service directly to drive the alert panel.
+ * Talks to Backend API for sensor data and predictions, and to the
+ * Notification Service for the alert panel.
  *
  * Endpoints used:
- *   GET  {API_BASE}/sensors?limit=N      -> sensor readings (working)
- *   GET  {API_BASE}/predictions?limit=N  -> ML predictions (not built yet, fails silently)
- *   POST {NOTIFICATION_BASE}/notify      -> { triggered: [...] } from Notification Service
+ *   GET  {API_BASE}/sensors?limit=N      -> sensor readings
+ *   GET  {API_BASE}/predictions?limit=N  -> ML predictions (anomaly point coloring)
+ *   GET  {NOTIFICATION_BASE}/alerts      -> recent alerts, shown in the alert panel
+ *
+ * The Backend API triggers the Notification Service when the ML model flags
+ * an anomaly; this page only reads the resulting alerts (POSTing /api/notify
+ * from here would re-send Telegram messages on every poll).
  */
 
 const CONFIG = {
@@ -15,7 +19,7 @@ const CONFIG = {
     NOTIFICATION_BASE: "http://localhost:5002/api",  // where Notification Service is running
     POLL_INTERVAL_MS: 8000,                          // how often to refresh the page, in milliseconds
     HISTORY_POINTS: 20,                              // how many past readings to plot on each chart
-    ANOMALY_THRESHOLD: 0.8,                          // same convention as notification-service's ALERT_THRESHOLD
+    ANOMALY_THRESHOLD: 0.8,                          // score above this colors a point red when predictions lack is_anomaly
     AQ_LABELS: { 1: "Good", 2: "Fair", 3: "Moderate", 4: "Poor", 5: "Hazardous" }, // turns the air_quality number into a word
 };
 
@@ -118,17 +122,6 @@ async function fetchJSON(path) {
     return res.json();
 }
 
-// Sends a POST request with a JSON body to the given URL and returns the parsed JSON.
-async function postJSON(url, body) {
-    const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(url + " -> " + res.status);
-    return res.json();
-}
-
 // ---------- rendering ----------
 
 // Redraws all 3 charts and the latest-value boxes from a fresh batch of readings.
@@ -210,22 +203,17 @@ async function refresh() {
 
     updateCharts(readings, anomalyEntryIds);
 
-    // Notification Service: hand it the latest reading, it checks the 3
-    // threshold rules (and messages Telegram if one fires) - the alert
-    // panel just shows whatever it decided.
+    // Notification Service: the Backend API sends alerts here when the ML
+    // model flags an anomaly, so the panel just shows the most recent one.
     const latest = readings[0];
     if (!latest) {
         setAlert("pending", "Notification", "Waiting for data...");
         return;
     }
     try {
-        const result = await postJSON(CONFIG.NOTIFICATION_BASE + "/notify", {
-            temperature: latest.temperature,
-            humidity: latest.humidity,
-            air_quality: latest.air_quality,
-        });
-        if (result.triggered.length > 0) {
-            setAlert("alert", result.triggered[0], result.triggered.join(" "));
+        const alerts = await fetchJSON(CONFIG.NOTIFICATION_BASE + "/alerts");
+        if (alerts.length > 0) {
+            setAlert("alert", alerts[0].message, alerts[0].created_at.slice(11, 16) + " " + alerts[0].created_at.slice(0, 10));
         } else {
             setAlert("good", "All systems normal", "No alerts on the latest reading.");
         }
