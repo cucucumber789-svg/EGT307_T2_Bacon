@@ -344,6 +344,12 @@ This keeps routes organised by feature instead of having everything in one file.
   called by the Backend API when the ML model flags a reading as anomalous
   (`store_prediction`). One notification per anomalous reading — rare events
   in an early-warning system must not be delayed or coalesced away
+- **Two onboarding paths** — First-time users self-provision a bot via
+  BotFather (token + chat id into `.env` / Secret). Teams can instead reuse
+  one bot in a shared Telegram group: the owner adds the bot to the group and
+  groupmates simply join, with credentials staying in the shared deployment
+  config. The `/` health endpoint exposes `telegram_configured` so a new user
+  can confirm their setup
 - **ML alert messages win** — The backend passes the ML model's `alerts` list
   with the reading, so Telegram text always matches what the model flagged.
   Direct callers (e.g. the dashboard) may omit it and the notification service

@@ -28,6 +28,34 @@ Notification Service
            Dashboard
 ```
 
+## Two ways to receive alerts
+
+There are two supported paths. Pick the one that matches your situation.
+
+### Path A — First-time setup (create your own bot)
+
+For a new user running the app on their own: follow **Telegram setup →
+First-time** below to create a bot, get a chat id, and put both into the
+configuration. This is the default experience — until `TELEGRAM_BOT_TOKEN`
+and `TELEGRAM_CHAT_ID` are set, the service starts with a notice that
+Telegram is not configured and skips sends.
+
+### Path B — Join a team that already has a bot (recommended for groups)
+
+If a teammate already runs the notification service with a bot, you don't
+create anything:
+
+1. Ask the bot owner to add the bot to your **Telegram group** (the owner
+   adds the bot as a member).
+2. Join the group as a normal member — the bot's messages are delivered to
+   everyone in it.
+3. Use the already-running service as-is. The token and the group's
+   `chat_id` live in the shared deployment config (`.env` for Compose, k8s
+   `Secret`), so no per-user setup is needed.
+
+Credentials are **deployment-owned, not per-user**: they are shared by
+everyone using the same deployment, and are never committed to the repo.
+
 ## Prerequisites
 
 - Python 3.11+
@@ -35,6 +63,8 @@ Notification Service
 - Docker (optional, for the containerised run modes)
 
 ## Telegram setup
+
+### First-time: create your own bot
 
 1. Open Telegram and message **@BotFather**.
 2. Run `/newbot`, follow the prompts, and copy the **token** it gives you
@@ -48,6 +78,27 @@ Notification Service
 
    In the JSON response, look for `"chat":{"id":<number>,...}` inside
    `result[0].message`. That number is your chat id.
+
+5. Put the token and chat id into the configuration (see below), then start
+   the service.
+
+### Joining: add an existing bot to a group
+
+1. Create (or open) the Telegram group and add the bot as a member.
+2. Post a message in the group (so the bot receives an update).
+3. Get the group's **chat id**:
+
+   ```
+   curl "https://api.telegram.org/bot<TOKEN>/getUpdates"
+   ```
+
+   Look for `result[0].message.chat.id` — for a group this is a **negative
+   number** (e.g. `-1001234567890`). The bot must be a member of the group,
+   otherwise it cannot send to it.
+
+4. The token (from `/token` in BotFather, or the one already in use) and the
+   group chat id go into the configuration; everyone in the group receives
+   the alerts.
 
 ## Configuration
 
@@ -65,7 +116,33 @@ or not the variables are set.
 | `AQ_THRESHOLD`          | `2`     | no      | Air quality at/below this triggers alert |
 
 If the token or chat id is empty, the service skips the Telegram send and
-prints `Telegram not configured, skipping send: <message>`.
+prints `Telegram not configured, skipping send: <message>`. On startup it
+also prints a notice pointing here, and the `/` health endpoint reports
+`"telegram_configured": false`.
+
+## Verify your setup
+
+1. Start the service (see below).
+2. Check the health endpoint:
+
+   ```bash
+   curl http://localhost:5002/
+   # -> {"service": "notification-service", "status": "ok", "telegram_configured": true}
+   ```
+
+   `telegram_configured` is `true` only when both `TELEGRAM_BOT_TOKEN` and
+   `TELEGRAM_CHAT_ID` are set. If it is `false`, credentials are missing.
+
+3. Send a test alert:
+
+   ```bash
+   curl -X POST http://localhost:5002/api/notify \
+     -H "Content-Type: application/json" \
+     -d '{"temperature":40,"humidity":80,"air_quality":3,"alerts":["Test alert"]}'
+   ```
+
+   The message should appear in your chat/group, and `GET /api/alerts` shows
+   the record.
 
 ## Running the service
 
@@ -165,6 +242,7 @@ the alert appears in `GET /api/alerts` and Telegram.
 
 | Symptom | Cause / fix |
 |---------|-------------|
+| `telegram_configured: false` in `/` | `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` not set at startup. Follow "First-time setup" (or the team's shared config) and restart. |
 | `Telegram not configured, skipping send` | `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` not set at startup. Set them before launching the service (config is read at import). |
 | `Telegram send failed: 401` | Bot token is wrong/revoked. Recreate via BotFather. |
 | `Telegram send failed: 400` | Invalid chat id (e.g. bot never messaged you, or wrong group id). Re-check `getUpdates`. |
