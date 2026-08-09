@@ -14,6 +14,15 @@ spec:
       labels:
         app: data-ingestion-service
     spec:
+      initContainers:
+        - name: seed-dataset
+          # Seeds the shared dataset PVC with the raw example file so the
+          # ingestion service has data to clean via POST /api/ingest/file.
+          image: dataset-seed:latest
+          command: ["sh", "-c", "[ -f /data/sensor_data.example.csv ] || cp /seed/sensor_data.example.csv /data/"]
+          volumeMounts:
+            - name: dataset
+              mountPath: /data
       containers:
         - name: data-ingestion-service
           image: data-ingestion-service:latest
@@ -22,4 +31,11 @@ spec:
           envFrom:
             - configMapRef:
                 name: data-ingestion-service-config
-          # TODO: Add resource limits, readiness/liveness probes
+          volumeMounts:
+            - name: dataset
+              mountPath: /data
+      volumes:
+        - name: dataset
+          persistentVolumeClaim:
+            claimName: dataset-pvc
+      # TODO: Add resource limits, readiness/liveness probes

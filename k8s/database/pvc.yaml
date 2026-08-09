@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dataset-pvc
+  labels:
+    app: dataset
+spec:
+  # ReadWriteOnce is fine while both consumers run replicas: 1 on one node
+  # (e.g. minikube / docker-desktop). Use ReadWriteMany for multi-node.
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

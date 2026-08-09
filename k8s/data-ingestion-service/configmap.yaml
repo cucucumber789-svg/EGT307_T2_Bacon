@@ -5,4 +5,5 @@ metadata:
 data:
   BACKEND_API_URL: "http://backend-api:5000"
   ALLOWED_FORMATS: "csv,json"
+  DATA_DIR: "/data"
   # TODO: Add batch size limits, timeout settings
