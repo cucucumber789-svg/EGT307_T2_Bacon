@@ -459,6 +459,21 @@ match the neighbouring service.
   `HTTPError` through when the upstream error is useful to the caller (e.g.
   the ML 503).
 
+### Frontend (Vanilla JS) & CSS
+- Plain JavaScript with **Chart.js** for charts — no framework, no build
+  step, no bundler. Files live under `html/`, `css/`, and `js/`.
+- A `CONFIG` object at the top of the script holds every tunable (base URLs,
+  poll interval, thresholds, labels).
+- Cache DOM element references once at the top of the script; drive styling
+  from `data-*` attributes (`#note[data-state]`) rather than toggling classes.
+- Access the API through small helpers (e.g. `fetchJSON`), `async/await`, and
+  a `try/catch` per fetch so a downed dependency shows an "Offline" status
+  instead of breaking the page.
+- Polling pattern: a `refresh()` function run once on load and then on a
+  timer (`setInterval`).
+- Plain CSS with id-based selectors for unique components and a small media
+  query for narrow screens; state styling via `[data-state=...]` selectors.
+
 ### Git Commits
 - Summary line: lowercase, imperative ("add", "fix", "refactor", "document",
   "wire").
@@ -466,6 +481,9 @@ match the neighbouring service.
   paragraph when the rationale isn't obvious from the change itself.
 - One logical change per commit (service code, deployment config, and docs are
   committed separately).
+- Feature changes also update the relevant docs (Architecture.md tree and
+  decisions, per-service READMEs) in the same commit or an accompanying docs
+  commit.
 
 ### Standalone Scripts & Verification
 - Build services as **importable modules first, standalone scripts second**:
@@ -479,6 +497,29 @@ match the neighbouring service.
   `k8s/` manifest folder per service.
 - Environment: `.env` (local), ConfigMap (non-secret), Secret (credentials).
 - Keep generated data and build outputs out of the repository.
+
+### Database Schema Changes
+- There is no migrations framework. To change a table, update the SQLAlchemy
+  model (`app/models/`) **and** `microservices/database/init.sql` together.
+- `Base.metadata.create_all` only creates missing tables — it does **not**
+  alter existing ones. For a development database, recreate it or apply the
+  change manually.
+
+### Adding a New Microservice
+1. Create `microservices/<name>/` with the `app/` split (or a single-file app
+   for small services) plus a `requirements.txt`.
+2. Add a `Dockerfile`: `python:3.11-slim`, `WORKDIR /app`, install
+   `requirements.txt`, `EXPOSE <port>`, `CMD ["python", "app/main.py"]`.
+3. Register it in `docker-compose.yml` (`build`, `ports`, `environment`,
+   `depends_on`).
+4. Add `k8s/<name>/`: `deployment.yaml` (image `<name>:latest`, `envFrom`
+   referencing the ConfigMap/Secret), `service.yaml` (ClusterIP,
+   `port: 80` → `targetPort`), and a `configmap.yaml` for non-secret config.
+5. Register it in Architecture.md (repository tree, file-by-file table,
+   Microservice Communication table, Port Assignments) and add a service
+   README if it has non-obvious setup or usage.
+6. Wire cross-service calls through the backend `app/services/` HTTP-client
+   pattern (best-effort or pass-through, per the error-handling conventions).
 
 ---
 
