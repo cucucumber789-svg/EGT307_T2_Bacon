@@ -5,6 +5,8 @@ from sqlalchemy import func
 
 from app.database import SessionLocal
 from app.models.sensor import SensorReading
+from app.services import ml_client
+from app.services.prediction_service import store_prediction
 
 sensor_bp = Blueprint("sensor", __name__)
 
@@ -87,6 +89,18 @@ def create_sensors_batch():
             ))
             count += 1
         db.commit()
-        return jsonify({"message": f"{count} readings created", "count": count}), 201
     finally:
         db.close()
+
+    # Best-effort: ask the ML service for anomaly predictions on the batch
+    # and persist them so the dashboard can show them. Ingestion must not
+    # fail if the ML service is unavailable.
+    if count > 0:
+        try:
+            resp = ml_client.predict_batch(readings)
+            for pred in resp.get("predictions", []):
+                store_prediction(pred)
+        except Exception:
+            pass
+
+    return jsonify({"message": f"{count} readings created", "count": count}), 201
