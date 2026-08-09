@@ -4,10 +4,15 @@ from datetime import datetime
 
 from app.database import SessionLocal
 from app.models.prediction import Prediction
+from app.services import notification_client
 
 
 def store_prediction(pred):
-    """Persist one ML prediction result and return the new row id."""
+    """Persist one ML prediction result and return the new row id.
+
+    Anomalies also trigger the Notification Service (best-effort) so the
+    team is alerted the moment the ML model flags a reading.
+    """
     reading = pred["readings"]
     db = SessionLocal()
     try:
@@ -24,6 +29,11 @@ def store_prediction(pred):
         )
         db.add(row)
         db.commit()
+        if pred["is_anomaly"]:
+            notification_client.notify_anomaly({
+                **reading,
+                "alerts": pred["alerts"],
+            })
         return row.id
     finally:
         db.close()
