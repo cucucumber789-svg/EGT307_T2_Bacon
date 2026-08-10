@@ -75,6 +75,9 @@ Notification Service working from scratch (Telegram bot setup, configuration,
 run modes, and troubleshooting), see
 [`components/notification-service/README.md`](../components/notification-service/README.md).
 
+To run the Frontend Dashboard (standalone, Compose, or Kubernetes), see
+[`components/frontend/README.md`](../components/frontend/README.md).
+
 ## Docker Containerization
 
 Each application component is packaged as a Docker container to provide a lightweight, portable, and consistent runtime environment across development, testing, and production. Docker eliminates dependency conflicts and ensures that the application behaves consistently regardless of the deployment platform.

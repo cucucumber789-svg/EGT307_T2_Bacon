@@ -129,8 +129,10 @@ EGT307_T2_Bacon/
 │   │   │   └── styles.css
 │   │   ├── html/
 │   │   │   └── dashboard.html
-│   │   └── js/
-│   │       └── dashboard.js
+│   │   ├── js/
+│   │   │   └── dashboard.js
+│   │   ├── Dockerfile              # nginx container that serves the dashboard
+│   │   └── nginx.conf              # listens on 3000, falls back to dashboard.html
 │   │
 │   └── sensor/                    # SENSOR SIMULATOR — replays dataset as IoT stream
 │       ├── sensor_simulator.py
@@ -156,7 +158,9 @@ EGT307_T2_Bacon/
     │   ├── service.yaml
     │   └── configmap.yaml
     ├── database/                  # shared dataset PersistentVolumeClaim
-    └── frontend/                  # (empty placeholder)
+    └── frontend/                  # FRONTEND — nginx container serving the dashboard
+        ├── deployment.yaml
+        └── service.yaml
 ```
 
 ---
@@ -222,7 +226,7 @@ in which case they are relative to the service folder inside `components/`.
 
 | File                                                                  | Purpose |
 |-----------------------------------------------------------------------|---------|
-| `docker-compose.yml`                                                  | Defines all services (backend, ML, notification, ingestion, database) and how they run together locally. One command starts everything. The Sensor Simulator and Frontend are not yet defined here. |
+| `docker-compose.yml`                                                  | Defines all services (backend, ML, notification, ingestion, database, frontend) and how they run together locally. One command starts everything. The Sensor Simulator is not yet defined here. |
 | `sensor_data.csv`                                                     | Raw sensor dataset (ground truth) that the Sensor Simulator replays. |
 | `components/backend-api/app/main.py`                               | Flask app entry point. Creates the app, registers blueprints (routers), and starts the server. This is the first file that runs. |
 | `components/backend-api/app/config.py`                             | Stores all configuration (database URL, ML service URL, etc.) loaded from environment variables. Keeps secrets out of code. |
@@ -260,6 +264,8 @@ in which case they are relative to the service folder inside `components/`.
 | `components/frontend/html/dashboard.html`                          | Dashboard page markup. |
 | `components/frontend/css/styles.css`                               | Dashboard styling. |
 | `components/frontend/js/dashboard.js`                              | Dashboard logic. Polls the Backend API for sensor readings and predictions (coloring anomalous points red) and the Notification Service's `GET /api/alerts` for the alert panel, renders charts with Chart.js. |
+| `components/frontend/Dockerfile`                                   | Container definition for the dashboard: nginx serving the static files on port 3000. |
+| `components/frontend/nginx.conf`                                   | nginx server config: listens on 3000, serves `html/`, `css/`, `js/`, and falls back to `dashboard.html`. |
 | `components/sensor/sensor_simulator.py`                            | Simulates an IoT sensor by replaying `sensor_data.csv` row by row and posting each reading to the Data Ingestion Service via REST, one record every few seconds. |
 | `components/sensor/Dockerfile`                                     | Container definition for the Sensor Simulator. No exposed port — it only makes outgoing requests. |
 | `components/sensor/requirements.txt`                               | Python dependencies for the Sensor Simulator (pandas, requests). |
@@ -473,6 +479,12 @@ match the neighbouring service.
   timer (`setInterval`).
 - Plain CSS with id-based selectors for unique components and a small media
   query for narrow screens; state styling via `[data-state=...]` selectors.
+- **Served by nginx** — `components/frontend/Dockerfile` + `nginx.conf` serve
+  the static files on port 3000. Compose wires it in as the `frontend`
+  service; `k8s/frontend/` holds the deployment and ClusterIP service. The
+  browser reaches the Backend API and Notification Service directly, so the
+  frontend has no `depends_on` (it is not a microservice, just a static-file
+  server).
 
 ### Git Commits
 - Summary line: lowercase, imperative ("add", "fix", "refactor", "document",
@@ -615,10 +627,7 @@ The following items have **not yet been finalised** and are subject to change:
    IoT streaming remain possible future inputs.
    I chose wk2 dataset because it shows the exact same inferential conclusion as wk 3 dataset and it is not as heavily loaded compared to wk 3 dataset.
 
-3. **Frontend Serving** — The dashboard is built (static HTML/CSS/JS), but
-   how it is served and containerised is still open.
-
-4. **Live Sensor → Ingestion link** — The sensor simulator posts to
+3. **Live Sensor → Ingestion link** — The sensor simulator posts to
    `/api/ingest/reading`, but ingestion currently only exposes
    `/api/ingest/file`. Wiring the simulator to register readings live (and
    accumulate them into the dataset) is future work; today data is registered

@@ -102,12 +102,8 @@ function buildAnomalySet(predictions) {
     const set = new Set();
     for (let i = 0; i < predictions.length; i++) {
         const p = predictions[i];
-        let isAnomaly;
-        if (p.is_anomaly !== undefined && p.is_anomaly !== null) {
-            isAnomaly = p.is_anomaly;
-        } else {
-            isAnomaly = p.anomaly_score >= CONFIG.ANOMALY_THRESHOLD;
-        }
+        // Fall back to the score threshold when is_anomaly is missing.
+        const isAnomaly = p.is_anomaly ?? p.anomaly_score >= CONFIG.ANOMALY_THRESHOLD;
         if (isAnomaly) {
             set.add(p.entry_id);
         }
@@ -190,15 +186,14 @@ async function refresh() {
         return;
     }
 
-    // Predictions are best-effort: /api/predictions doesn't exist on Backend
-    // API yet, so a failure here just means "not built yet". Only used to
-    // color anomalous points red on the charts below.
+    // Predictions are best-effort: a failure here just leaves the points
+    // uncolored. Only used to color anomalous points red on the charts below.
     let anomalyEntryIds = new Set();
     try {
         const predictions = await fetchJSON("/predictions?limit=" + CONFIG.HISTORY_POINTS);
         anomalyEntryIds = buildAnomalySet(predictions);
     } catch (err) {
-        // not built yet - charts just show uncolored points
+        // prediction lookup failed - charts just show uncolored points
     }
 
     updateCharts(readings, anomalyEntryIds);
