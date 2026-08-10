@@ -13,4 +13,4 @@ COPY . .
 
 EXPOSE 5002
 
-CMD ["python", "app/main.py"]
+CMD ["python", "-m", "app.main"]

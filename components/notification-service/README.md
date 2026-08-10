@@ -155,7 +155,7 @@ once at import time):
 $env:TELEGRAM_BOT_TOKEN = "<token>"
 $env:TELEGRAM_CHAT_ID = "<chat-id>"
 cd components/notification-service
-python app/main.py
+python -m app.main
 ```
 
 The service listens on port `5002`.

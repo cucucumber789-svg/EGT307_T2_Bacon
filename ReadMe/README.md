@@ -152,10 +152,10 @@ piece without the full stack. The quick reference:
 | Service                | Folder                         | Port | Run                              |
 |------------------------|--------------------------------|------|----------------------------------|
 | Database               | `components/database`          | 5432 | Docker (see below)               |
-| Backend API            | `components/backend-api`       | 5000 | `python app/main.py`             |
-| Notification Service   | `components/notification-service` | 5002 | `python app/main.py`           |
-| Data Ingestion Service | `components/data-ingestion-service` | 5003 | `python app/main.py`          |
-| ML Service             | `components/ml-service`        | 5001 | `python app/main.py`             |
+| Backend API            | `components/backend-api`       | 5000 | `python -m app.main`             |
+| Notification Service   | `components/notification-service` | 5002 | `python -m app.main`           |
+| Data Ingestion Service | `components/data-ingestion-service` | 5003 | `python -m app.main`          |
+| ML Service             | `components/ml-service`        | 5001 | `python -m app.main`             |
 | Sensor Simulator       | `components/sensor`            | —    | `python sensor_simulator.py`     |
 | Frontend Dashboard     | `components/frontend`          | 3000 | `python -m http.server 3000`     |
 
@@ -180,7 +180,7 @@ to guarantee an identical schema.
 ```bash
 cd components/backend-api
 pip install -r requirements.txt
-python app/main.py
+python -m app.main
 ```
 
 Listens on port 5000. All settings come from environment variables with
@@ -200,7 +200,7 @@ cd components/notification-service
 pip install -r requirements.txt
 $env:TELEGRAM_BOT_TOKEN = "<token>"   # PowerShell; use export in bash
 $env:TELEGRAM_CHAT_ID = "<chat-id>"
-python app/main.py
+python -m app.main
 ```
 
 Listens on port 5002. The alert thresholds default in code (`TEMP_THRESHOLD`
@@ -214,13 +214,18 @@ Server mode (listens on port 5003):
 ```bash
 cd components/data-ingestion-service
 pip install -r requirements.txt
-python app/main.py
+python -m app.main
 ```
 
 | Variable | Default |
 |----------|---------|
 | `BACKEND_API_URL` | `http://localhost:5000` |
 | `DATA_DIR` | `../database` (i.e. `components/database`) |
+
+> The server starts "empty" by design — it does **not** clean the dataset on
+> startup. Produce the cleaned dataset with the clean-only command below, or
+> with `POST /api/ingest/file` while the server is running (which also
+> forwards the rows to the backend).
 
 Clean-only mode — no server or backend needed; reads
 `components/database/sensor_data.example.csv` and writes
@@ -236,7 +241,7 @@ python -m app.services.data_ingestion
 ```bash
 cd components/ml-service
 pip install -r requirements.txt
-python app/main.py
+python -m app.main
 ```
 
 Listens on port 5001. `DATASET_PATH` defaults to
