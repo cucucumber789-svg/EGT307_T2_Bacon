@@ -13,7 +13,7 @@ import os
 
 class Config:
     # Dataset produced by the ingestion service. Relative default resolves
-    # to microservices/database/ when run from microservices/ml-service/.
+    # to components/database/ when run from components/ml-service/.
     DATASET_PATH = os.environ.get(
         "DATASET_PATH",
         "../database/sensor_data_cleaned.csv",

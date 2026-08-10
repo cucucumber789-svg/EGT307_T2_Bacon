@@ -1,5 +1,5 @@
 # Local dev cleaned datasets (ingestion service output)
-microservices/database/sensor_data_cleaned.csv
+components/database/sensor_data_cleaned.csv
 
 # Python
 __pycache__/

@@ -4,7 +4,7 @@
 
 services:
   backend-api:
-    build: ./microservices/backend-api
+    build: ./components/backend-api
     ports:
       - "5000:5000"
     environment:
@@ -16,7 +16,7 @@ services:
       - database
 
   notification-service:
-    build: ./microservices/notification-service
+    build: ./components/notification-service
     ports:
       - "5002:5002"
     environment:
@@ -27,14 +27,14 @@ services:
       - AQ_THRESHOLD=2
 
   data-ingestion-service:
-    build: ./microservices/data-ingestion-service
+    build: ./components/data-ingestion-service
     ports:
       - "5003:5003"
     environment:
       - BACKEND_API_URL=http://backend-api:5000
       - DATA_DIR=/data
     volumes:
-      - ./microservices/database:/data
+      - ./components/database:/data
     depends_on:
       - database
       - backend-api
@@ -48,20 +48,20 @@ services:
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=env_monitor
     volumes:
-      - ./microservices/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./components/database/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   ml-service:
-    build: ./microservices/ml-service
+    build: ./components/ml-service
     ports:
       - "5001:5001"
     environment:
       - DATASET_PATH=/data/sensor_data_cleaned.csv
     volumes:
-      - ./microservices/database:/data
+      - ./components/database:/data
     depends_on:
       - data-ingestion-service
 
   # frontend:
-  #   build: ./microservices/frontend
+  #   build: ./components/frontend
   #   ports:
   #     - "3000:3000"

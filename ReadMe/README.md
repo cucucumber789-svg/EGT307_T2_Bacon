@@ -73,7 +73,7 @@ The Frontend Dashboard provides a user-friendly interface for monitoring environ
 Per-service documentation lives inside each service folder. To get the
 Notification Service working from scratch (Telegram bot setup, configuration,
 run modes, and troubleshooting), see
-[`microservices/notification-service/README.md`](../microservices/notification-service/README.md).
+[`components/notification-service/README.md`](../components/notification-service/README.md).
 
 ## Docker Containerization
 

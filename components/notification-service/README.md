@@ -7,7 +7,7 @@ conditions, and keeps the most recent alerts in memory for the dashboard.
 
 - The **Backend API** calls `POST /api/notify` whenever the ML model flags a
   sensor reading as anomalous (`store_prediction` in
-  `microservices/backend-api/app/services/prediction_service.py`).
+  `components/backend-api/app/services/prediction_service.py`).
 - The service sends a Telegram message for each alert and records it in an
   in-memory list.
 - The **dashboard** reads the alerts with `GET /api/alerts`.
@@ -154,7 +154,7 @@ once at import time):
 ```powershell
 $env:TELEGRAM_BOT_TOKEN = "<token>"
 $env:TELEGRAM_CHAT_ID = "<chat-id>"
-cd microservices/notification-service
+cd components/notification-service
 python app/main.py
 ```
 

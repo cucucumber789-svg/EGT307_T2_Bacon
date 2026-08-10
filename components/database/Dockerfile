@@ -4,7 +4,7 @@ FROM busybox:1.36
 # Intention: provides the raw example dataset to the shared k8s dataset PVC.
 # Used as an init container on the data-ingestion pod so /api/ingest/file
 # has raw data to read. Build with:
-#   docker build -t dataset-seed:latest microservices/database
+#   docker build -t dataset-seed:latest components/database
 
 WORKDIR /seed
 
