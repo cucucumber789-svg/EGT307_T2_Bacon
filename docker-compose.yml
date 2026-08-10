@@ -61,7 +61,7 @@ services:
     depends_on:
       - data-ingestion-service
 
-  # frontend:
-  #   build: ./components/frontend
-  #   ports:
-  #     - "3000:3000"
+  frontend:
+    build: ./components/frontend
+    ports:
+      - "3000:3000"
