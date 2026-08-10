@@ -68,15 +68,246 @@ The Notification Service is used to send alerts when the system detects abnormal
 
 The Frontend Dashboard provides a user-friendly interface for monitoring environmental conditions. It displays sensor data, anomaly detection results, and historical trends by sending REST API requests to the Backend API. Users can easily view environmental status and receive alerts without directly interacting with the database.
 
-## Service Setup Guides
+## Setup & Running
 
-Per-service documentation lives inside each service folder. To get the
-Notification Service working from scratch (Telegram bot setup, configuration,
-run modes, and troubleshooting), see
-[`components/notification-service/README.md`](../components/notification-service/README.md).
+### Prerequisites
 
-To run the Frontend Dashboard (standalone, Compose, or Kubernetes), see
-[`components/frontend/README.md`](../components/frontend/README.md).
+- Python 3.11+ (only needed to run the services standalone; not needed if you
+  use Docker only)
+- Docker with Docker Compose (for the full stack)
+- `kubectl` and a cluster (only for the Kubernetes option)
+
+No Node.js is required — the frontend is plain static files served by nginx.
+
+### Option A — Full stack with Docker Compose
+
+From the repo root, start everything:
+
+```bash
+docker-compose up --build
+```
+
+To receive Telegram alerts, create a `.env` file in the repo root
+(git-ignored) before starting:
+
+```
+TELEGRAM_BOT_TOKEN=123456789:AA...
+TELEGRAM_CHAT_ID=-1001234567890
+```
+
+Without these, the Notification Service still runs and records alerts, but
+prints `Telegram not configured, skipping send` instead of messaging anyone.
+
+| Service                | Host port | URL / connection                     |
+|------------------------|-----------|--------------------------------------|
+| Frontend Dashboard     | 3000      | http://localhost:3000                |
+| Backend API            | 5000      | http://localhost:5000/api            |
+| ML Service             | 5001      | http://localhost:5001                |
+| Notification Service   | 5002      | http://localhost:5002                |
+| Data Ingestion Service | 5003      | http://localhost:5003                |
+| Database (PostgreSQL)  | 5432      | `postgresql://user:password@localhost:5432/env_monitor` |
+
+First-run data flow:
+
+```bash
+# 1. Register the raw dataset once (cleans it and forwards rows to the backend)
+curl -X POST http://localhost:5003/api/ingest/file
+
+# 2. Confirm readings are stored
+curl http://localhost:5000/api/sensors?limit=5
+
+# 3. Trigger the ML model (lazy training) and store an anomaly prediction
+curl -X POST http://localhost:5000/api/predict \
+  -H "Content-Type: application/json" \
+  -d '{"temperature":45,"humidity":90,"air_quality":1}'
+
+# 4. Open the dashboard
+#    http://localhost:3000/
+```
+
+### Option B — Kubernetes
+
+Create the Telegram credentials Secret (skip if you are not using Telegram):
+
+```bash
+kubectl create secret generic telegram-credentials \
+  --from-literal=TELEGRAM_BOT_TOKEN=<token> \
+  --from-literal=TELEGRAM_CHAT_ID=<chat-id>
+```
+
+Apply the manifests. The database PVC must exist first because every service
+that mounts the shared dataset volume depends on it:
+
+```bash
+kubectl apply -f k8s/database/pvc.yaml
+kubectl apply -f k8s/backend-api -f k8s/ml-service -f k8s/notification-service \
+              -f k8s/data-ingestion-service -f k8s/frontend
+```
+
+### Option C — Run each service standalone (no Docker)
+
+Each service installs and runs on its own, so you can develop and test one
+piece without the full stack. The quick reference:
+
+| Service                | Folder                         | Port | Run                              |
+|------------------------|--------------------------------|------|----------------------------------|
+| Database               | `components/database`          | 5432 | Docker (see below)               |
+| Backend API            | `components/backend-api`       | 5000 | `python app/main.py`             |
+| Notification Service   | `components/notification-service` | 5002 | `python app/main.py`           |
+| Data Ingestion Service | `components/data-ingestion-service` | 5003 | `python app/main.py`          |
+| ML Service             | `components/ml-service`        | 5001 | `python app/main.py`             |
+| Sensor Simulator       | `components/sensor`            | —    | `python sensor_simulator.py`     |
+| Frontend Dashboard     | `components/frontend`          | 3000 | `python -m http.server 3000`     |
+
+#### 1. Database (PostgreSQL)
+
+PostgreSQL is not a Python service, so it runs in Docker even in standalone
+mode. The default connection is `postgresql://user:password@localhost:5432/env_monitor`.
+
+```bash
+docker run -d --name bacon-db -p 5432:5432 \
+  -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password -e POSTGRES_DB=env_monitor \
+  -v <absolute path>\components\database\init.sql:/docker-entrypoint-initdb.d/init.sql \
+  postgres:16-alpine
+```
+
+The init.sql volume needs an absolute path on Windows. The Backend API also
+creates missing tables on startup (`create_all`), so init.sql is only needed
+to guarantee an identical schema.
+
+#### 2. Backend API
+
+```bash
+cd components/backend-api
+pip install -r requirements.txt
+python app/main.py
+```
+
+Listens on port 5000. All settings come from environment variables with
+localhost defaults:
+
+| Variable | Default |
+|----------|---------|
+| `DATABASE_URL` | `postgresql://user:password@localhost:5432/env_monitor` |
+| `ML_SERVICE_URL` | `http://localhost:5001` |
+| `NOTIFICATION_SERVICE_URL` | `http://localhost:5002` |
+| `DATA_INGESTION_SERVICE_URL` | `http://localhost:5003` |
+
+#### 3. Notification Service
+
+```bash
+cd components/notification-service
+pip install -r requirements.txt
+$env:TELEGRAM_BOT_TOKEN = "<token>"   # PowerShell; use export in bash
+$env:TELEGRAM_CHAT_ID = "<chat-id>"
+python app/main.py
+```
+
+Listens on port 5002. The alert thresholds default in code (`TEMP_THRESHOLD`
+39, `HUMIDITY_THRESHOLD` 55, `AQ_THRESHOLD` 2). Full Telegram setup and
+troubleshooting: `components/notification-service/README.md`.
+
+#### 4. Data Ingestion Service
+
+Server mode (listens on port 5003):
+
+```bash
+cd components/data-ingestion-service
+pip install -r requirements.txt
+python app/main.py
+```
+
+| Variable | Default |
+|----------|---------|
+| `BACKEND_API_URL` | `http://localhost:5000` |
+| `DATA_DIR` | `../database` (i.e. `components/database`) |
+
+Clean-only mode — no server or backend needed; reads
+`components/database/sensor_data.example.csv` and writes
+`components/database/sensor_data_cleaned.csv`:
+
+```bash
+cd components/data-ingestion-service
+python -m app.services.data_ingestion
+```
+
+#### 5. ML Service
+
+```bash
+cd components/ml-service
+pip install -r requirements.txt
+python app/main.py
+```
+
+Listens on port 5001. `DATASET_PATH` defaults to
+`../database/sensor_data_cleaned.csv`. The model trains lazily: the service
+starts idle and trains on the first prediction request (503 until data is
+available). Sanity-check the model without a server:
+
+```bash
+cd components/ml-service
+python -m app.services.model_service
+```
+
+#### 6. Sensor Simulator
+
+```bash
+cd components/sensor
+pip install -r requirements.txt
+python sensor_simulator.py
+```
+
+| Variable | Default | Note |
+|----------|---------|------|
+| `DATASET_PATH` | `components/sensor/sensor_data.csv` | This file does not exist in the repo. Point it at the repo-root `sensor_data.csv` or `components/database/sensor_data.example.csv`. |
+| `DATA_INGESTION_URL` | `http://data-ingestion-service:5003/api/ingest/reading` | A Docker-internal DNS name. For local runs set `http://localhost:5003/api/ingest/reading`. |
+| `SEND_INTERVAL_SECONDS` | `3` | How long to wait between readings. |
+
+> Caveat: the target endpoint `/api/ingest/reading` is not implemented in the
+> Data Ingestion Service yet (only `/api/ingest/file` exists), so the
+> simulator cannot register data end-to-end today. See Known Limitations.
+
+#### 7. Frontend Dashboard
+
+```bash
+cd components/frontend
+python -m http.server 3000
+```
+
+Open `http://localhost:3000/html/dashboard.html`. The dashboard is static —
+it needs the Backend API (5000) and Notification Service (5002) running, and
+loads Chart.js from a CDN (internet required). Opening the file directly with
+`file://` will not work. See `components/frontend/README.md` for details.
+
+### Run everything locally (no Docker)
+
+Start the services in this order, each in its own terminal:
+
+1. Database (Docker container, see #1)
+2. Backend API (see #2)
+3. Notification Service (see #3)
+4. Data Ingestion Service, server mode (see #4)
+5. ML Service (see #5)
+6. Frontend Dashboard (see #7)
+
+Then register data as in Option A and open the dashboard.
+
+### Per-service documentation
+
+Each service folder has its own README with configuration, run modes, and
+troubleshooting:
+[`components/notification-service/README.md`](../components/notification-service/README.md),
+[`components/frontend/README.md`](../components/frontend/README.md), and the
+system-level design notes in
+[`Architecture.md`](./Architecture.md).
+
+### Known limitations
+
+- The sensor simulator posts to `/api/ingest/reading`, but the Data Ingestion
+  Service currently only exposes `/api/ingest/file`. Today data is registered
+  by posting the raw file once; live streaming is future work.
+- The ML model trains on the limited cleaned dataset, so its accuracy may
+  differ on new or unseen data.
 
 ## Docker Containerization
 
