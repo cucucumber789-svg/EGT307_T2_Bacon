@@ -4,9 +4,9 @@
 
 | Name     | Task                                                                                                    | Microservice                           |
 |----------|---------------------------------------------------------------------------------------------------------|----------------------------------------|
-| Wei Guan | Notification Service, Frontend Dashboard, Sensor Simulator                                              | sensor simulator, notification-service |
+| Wei Guan | Notification Service, Frontend Dashboard, Sensor Simulator, Presentation, Data Sources                   | sensor simulator, notification-service |
 | Shun Wei | Backend API, System Integration, Docker & Kubernetes, System Architecture, Code Quality & Documentation | backend-api                            |
-| Derek    | Data Ingestion Service, Database Setup, ML Service                                                      | data-ingestion-service                 |
+| Derek    | Data Ingestion Service, Database Setup, Machine Learning Service                                        | data-ingestion, ml service              |
 
 ## Project Overview
 
