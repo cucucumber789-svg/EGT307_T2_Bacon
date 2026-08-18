@@ -54,7 +54,13 @@ EGT307_T2_Bacon/
 │   ├── README.md
 │   └── Architecture.md
 │
+├── scripts/                       # Validation & utility scripts
+│   ├── validate-env.sh            # Shell env validation (used by Docker)
+│   └── validate-env.py            # Python env validation (standalone mode)
+│
 ├── components/                 # All services live under this folder
+│   ├── env-validator/             # ENV VALIDATOR — pre-flight env check container
+│   │   └── Dockerfile
 │   ├── backend-api/               # BACKEND API — Flask + PySpark
 │   │   ├── app/
 │   │   │   ├── __init__.py
@@ -228,6 +234,9 @@ in which case they are relative to the service folder inside `components/`.
 |-----------------------------------------------------------------------|---------|
 | `docker-compose.yml`                                                  | Defines all services (backend, ML, notification, ingestion, database, frontend) and how they run together locally. One command starts everything. The Sensor Simulator is not yet defined here. |
 | `sensor_data.csv`                                                     | Raw sensor dataset (ground truth) that the Sensor Simulator replays. |
+| `scripts/validate-env.sh`                                             | Shell script for validating `.env`. Used by the `env-validator` Docker container to block startup until all secrets are set. |
+| `scripts/validate-env.py`                                             | Python script for validating `.env` in standalone mode. Loads `.env` into the environment and checks all required variables. |
+| `components/env-validator/Dockerfile`                                 | Minimal alpine container that runs `validate-env.sh` as a healthcheck. Other services depend on it being healthy before starting. |
 | `components/backend-api/app/main.py`                               | Flask app entry point. Creates the app, registers blueprints (routers), and starts the server. This is the first file that runs. |
 | `components/backend-api/app/config.py`                             | Stores all configuration (database URL, ML service URL, etc.) loaded from environment variables. Keeps secrets out of code. |
 | `components/backend-api/app/database.py`                           | Creates the SQLAlchemy engine and session. Other files import `SessionLocal` to query or insert data into PostgreSQL. |
@@ -440,6 +449,12 @@ match the neighbouring service.
 - **Secrets** (bot tokens, credentials) use empty-string defaults and are
   injected per environment — `.env` for Compose, a k8s `Secret`, or shell
   environment variables. Never hardcode a secret in code.
+- **Env validation** — The `env-validator` service (Docker Compose) and
+  `scripts/validate-env.py` (standalone) check that `.env` exists and all
+  required variables are set before any service starts. In Docker, the
+  validator runs as a healthcheck; other services depend on it being healthy.
+  In standalone mode, run `python scripts/validate-env.py` before starting
+  services.
 - **Non-secret config** (thresholds, paths, URLs) carries a real default in
   code, and the same value is set explicitly in `docker-compose.yml` / the k8s
   ConfigMap so behaviour is identical whether or not the variable is set.

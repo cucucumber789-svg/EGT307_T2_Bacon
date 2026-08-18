@@ -81,22 +81,19 @@ No Node.js is required — the frontend is plain static files served by nginx.
 
 ### Option A — Full stack with Docker Compose
 
-From the repo root, start everything:
+Create a `.env` file in the repo root (git-ignored) before starting. The
+`env-validator` service runs automatically and blocks startup until all
+values are valid:
 
 ```bash
+cp .env.example .env   # then edit with your values
 docker-compose up --build
 ```
 
-To receive Telegram alerts, create a `.env` file in the repo root
-(git-ignored) before starting:
-
-```
-TELEGRAM_BOT_TOKEN=123456789:AA...
-TELEGRAM_CHAT_ID=-1001234567890
-```
-
-Without these, the Notification Service still runs and records alerts, but
-prints `Telegram not configured, skipping send` instead of messaging anyone.
+If any variable is missing or still has a placeholder, startup stops with a
+clear error message. Without Telegram credentials the Notification Service
+still runs and records alerts, but prints `Telegram not configured, skipping
+send` instead of messaging anyone.
 
 | Service                | Host port | URL / connection                     |
 |------------------------|-----------|--------------------------------------|
@@ -147,7 +144,18 @@ kubectl apply -f k8s/backend-api -f k8s/ml-service -f k8s/notification-service \
 ### Option C — Run each service standalone (no Docker)
 
 Each service installs and runs on its own, so you can develop and test one
-piece without the full stack. The quick reference:
+piece without the full stack.
+
+**First, validate your environment:**
+
+```bash
+python scripts/validate-env.py
+```
+
+This loads `.env` from the repo root and checks all required variables. Fix
+any errors before proceeding.
+
+The quick reference:
 
 | Service                | Folder                         | Port | Run                              |
 |------------------------|--------------------------------|------|----------------------------------|
@@ -198,12 +206,11 @@ localhost defaults:
 ```bash
 cd components/notification-service
 pip install -r requirements.txt
-$env:TELEGRAM_BOT_TOKEN = "<token>"   # PowerShell; use export in bash
-$env:TELEGRAM_CHAT_ID = "<chat-id>"
 python -m app.main
 ```
 
-Listens on port 5002. The alert thresholds default in code (`TEMP_THRESHOLD`
+Listens on port 5002. The Telegram credentials are loaded from `.env` (via
+the env validator). The alert thresholds default in code (`TEMP_THRESHOLD`
 39, `HUMIDITY_THRESHOLD` 55, `AQ_THRESHOLD` 2). Full Telegram setup and
 troubleshooting: `components/notification-service/README.md`.
 
@@ -286,14 +293,20 @@ loads Chart.js from a CDN (internet required). Opening the file directly with
 
 ### Run everything locally (no Docker)
 
-Start the services in this order, each in its own terminal:
+1. Validate environment variables:
 
-1. Database (Docker container, see #1)
-2. Backend API (see #2)
-3. Notification Service (see #3)
-4. Data Ingestion Service, server mode (see #4)
-5. ML Service (see #5)
-6. Frontend Dashboard (see #7)
+```bash
+python scripts/validate-env.py
+```
+
+2. Start the services in this order, each in its own terminal:
+
+   1. Database (Docker container, see #1)
+   2. Backend API (see #2)
+   3. Notification Service (see #3)
+   4. Data Ingestion Service, server mode (see #4)
+   5. ML Service (see #5)
+   6. Frontend Dashboard (see #7)
 
 Then register data as in Option A and open the dashboard.
 
