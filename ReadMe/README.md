@@ -209,10 +209,44 @@ pip install -r requirements.txt
 python -m app.main
 ```
 
-Listens on port 5002. The Telegram credentials are loaded from `.env` (via
-the env validator). The alert thresholds default in code (`TEMP_THRESHOLD`
+Listens on port 5002. The Telegram credentials are loaded from `.env`
+automatically. The alert thresholds default in code (`TEMP_THRESHOLD`
 39, `HUMIDITY_THRESHOLD` 55, `AQ_THRESHOLD` 2). Full Telegram setup and
 troubleshooting: `components/notification-service/README.md`.
+
+#### Test the notification service
+
+Check the health endpoint (look for `telegram_configured: true`):
+
+```powershell
+# PowerShell
+Invoke-RestMethod -Uri http://localhost:5002/
+
+# Bash
+curl http://localhost:5002/
+```
+
+Send a test alert:
+
+```powershell
+# PowerShell
+Invoke-RestMethod -Uri http://localhost:5002/api/notify -Method Post `
+  -ContentType "application/json" `
+  -Body '{"temperature":40,"humidity":80,"air_quality":3,"alerts":["Test alert"]}'
+```
+
+```bash
+# Bash
+curl -X POST http://localhost:5002/api/notify \
+  -H "Content-Type: application/json" \
+  -d '{"temperature":40,"humidity":80,"air_quality":3,"alerts":["Test alert"]}'
+```
+
+A Telegram message should arrive. Verify with:
+
+```powershell
+Invoke-RestMethod -Uri http://localhost:5002/api/alerts
+```
 
 #### 4. Data Ingestion Service
 

@@ -1,5 +1,9 @@
 import os
 
+from dotenv import load_dotenv
+
+load_dotenv()  # auto-load .env from repo root for standalone mode
+
 
 class Config:
     BACKEND_API_URL = os.environ.get("BACKEND_API_URL", "http://localhost:5000")

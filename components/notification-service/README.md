@@ -72,8 +72,12 @@ everyone using the same deployment, and are never committed to the repo.
 3. Message your new bot once (any text) so it can reach you.
 4. Find your **chat id**:
 
-   ```
+   ```bash
+   # Bash
    curl "https://api.telegram.org/bot<TOKEN>/getUpdates"
+
+   # PowerShell
+   Invoke-RestMethod -Uri "https://api.telegram.org/bot<TOKEN>/getUpdates"
    ```
 
    In the JSON response, look for `"chat":{"id":<number>,...}` inside
@@ -88,8 +92,12 @@ everyone using the same deployment, and are never committed to the repo.
 2. Post a message in the group (so the bot receives an update).
 3. Get the group's **chat id**:
 
-   ```
+   ```bash
+   # Bash
    curl "https://api.telegram.org/bot<TOKEN>/getUpdates"
+
+   # PowerShell
+   Invoke-RestMethod -Uri "https://api.telegram.org/bot<TOKEN>/getUpdates"
    ```
 
    Look for `result[0].message.chat.id` — for a group this is a **negative
@@ -126,8 +134,11 @@ also prints a notice pointing here, and the `/` health endpoint reports
 2. Check the health endpoint:
 
    ```bash
+   # Bash
    curl http://localhost:5002/
-   # -> {"service": "notification-service", "status": "ok", "telegram_configured": true}
+
+   # PowerShell
+   Invoke-RestMethod -Uri http://localhost:5002/
    ```
 
    `telegram_configured` is `true` only when both `TELEGRAM_BOT_TOKEN` and
@@ -136,9 +147,15 @@ also prints a notice pointing here, and the `/` health endpoint reports
 3. Send a test alert:
 
    ```bash
+   # Bash
    curl -X POST http://localhost:5002/api/notify \
      -H "Content-Type: application/json" \
      -d '{"temperature":40,"humidity":80,"air_quality":3,"alerts":["Test alert"]}'
+
+   # PowerShell
+   Invoke-RestMethod -Uri http://localhost:5002/api/notify -Method Post `
+     -ContentType "application/json" `
+     -Body '{"temperature":40,"humidity":80,"air_quality":3,"alerts":["Test alert"]}'
    ```
 
    The message should appear in your chat/group, and `GET /api/alerts` shows
@@ -148,17 +165,14 @@ also prints a notice pointing here, and the `/` health endpoint reports
 
 ### Local (standalone)
 
-Set the environment variables **before** starting the service (they are read
-once at import time):
-
-```powershell
-$env:TELEGRAM_BOT_TOKEN = "<token>"
-$env:TELEGRAM_CHAT_ID = "<chat-id>"
+```bash
 cd components/notification-service
+pip install -r requirements.txt
 python -m app.main
 ```
 
-The service listens on port `5002`.
+The service loads Telegram credentials from `.env` automatically via
+`python-dotenv`. The service listens on port `5002`.
 
 ### Docker Compose
 
@@ -214,11 +228,26 @@ curl -X POST http://localhost:5002/api/notify \
 # -> 200 {"triggered": ["High temperature detected!", "High humidity detected!"]}
 ```
 
+```powershell
+# PowerShell — backend-style call
+Invoke-RestMethod -Uri http://localhost:5002/api/notify -Method Post `
+  -ContentType "application/json" `
+  -Body '{"temperature":40,"humidity":80,"air_quality":3,"alerts":["High temperature detected!"]}'
+
+# PowerShell — direct call (derive from thresholds)
+Invoke-RestMethod -Uri http://localhost:5002/api/notify -Method Post `
+  -ContentType "application/json" `
+  -Body '{"temperature":40,"humidity":80,"air_quality":3}'
+```
+
 ### Read recent alerts
 
 ```bash
+# Bash
 curl http://localhost:5002/api/alerts
-# -> [{"message": "...", "temperature": ..., "humidity": ..., "air_quality": ..., "created_at": "..."}]
+
+# PowerShell
+Invoke-RestMethod -Uri http://localhost:5002/api/alerts
 ```
 
 Alerts are kept in memory only (last 50) and reset when the service restarts.

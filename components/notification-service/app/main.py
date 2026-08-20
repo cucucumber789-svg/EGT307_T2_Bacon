@@ -14,7 +14,10 @@ import os
 from datetime import datetime, timezone
 
 import requests
+from dotenv import load_dotenv
 from flask import Flask, request, jsonify
+
+load_dotenv()  # auto-load .env from repo root for standalone mode
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")

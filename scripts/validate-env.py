@@ -12,6 +12,8 @@ Usage:
 import os
 import sys
 
+from dotenv import load_dotenv
+
 # ---------------------------------------------------------------------------
 # Terminal colours for readable output
 # ---------------------------------------------------------------------------
@@ -66,39 +68,6 @@ REQUIRED_VARS = [
 ]
 
 
-def load_env_file(path):
-    """Parse a .env file and set variables in os.environ (no overwrites).
-
-    Reads key=value pairs, ignoring comments (#) and blank lines.
-    Existing environment variables are never overwritten so that
-    shell-exported values take precedence over .env defaults.
-    """
-    if not os.path.isfile(path):
-        return False
-    with open(path) as f:
-        for line in f:
-            line = line.strip()
-            # Skip blank lines and comments
-            if not line or line.startswith("#"):
-                continue
-            # Skip lines without an equals sign (malformed)
-            if "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            key = key.strip()
-            value = value.strip()
-            # Strip surrounding quotes if present
-            if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
-                value = value[1:-1]
-            # Strip inline comments (everything after the first #)
-            if "#" in value:
-                value = value[:value.index("#")].strip()
-            # Only set if not already in the environment
-            if key not in os.environ:
-                os.environ[key] = value
-    return True
-
-
 def check_var(name, placeholder="", hint=""):
     """Validate a single environment variable.
 
@@ -149,8 +118,9 @@ def main():
 
     # ------------------------------------------------------------------
     # 2. Load values from .env into os.environ (no overwrites)
+    #    load_dotenv() handles comments, quotes, and inline comments
     # ------------------------------------------------------------------
-    load_env_file(env_path)
+    load_dotenv(env_path, override=False)
     print(f"[env-validator] Checking {env_path} ...")
 
     # ------------------------------------------------------------------

@@ -10,6 +10,10 @@ Design:
 
 import os
 
+from dotenv import load_dotenv
+
+load_dotenv()  # auto-load .env from repo root for standalone mode
+
 
 class Config:
     # Dataset produced by the ingestion service. Relative default resolves

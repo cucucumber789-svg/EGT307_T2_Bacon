@@ -455,6 +455,9 @@ match the neighbouring service.
   validator runs as a healthcheck; other services depend on it being healthy.
   In standalone mode, run `python scripts/validate-env.py` before starting
   services.
+- **Auto-loading `.env`** — Each service calls `load_dotenv()` from
+  `python-dotenv` at startup, so `.env` is automatically loaded into
+  `os.environ` when running standalone. No manual variable exports needed.
 - **Non-secret config** (thresholds, paths, URLs) carries a real default in
   code, and the same value is set explicitly in `docker-compose.yml` / the k8s
   ConfigMap so behaviour is identical whether or not the variable is set.
