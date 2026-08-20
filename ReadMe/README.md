@@ -305,13 +305,9 @@ python sensor_simulator.py
 
 | Variable | Default | Note |
 |----------|---------|------|
-| `DATASET_PATH` | `components/sensor/sensor_data.csv` | This file does not exist in the repo. Point it at the repo-root `sensor_data.csv` or `components/database/sensor_data.example.csv`. |
+| `DATASET_PATH` | `components/database/validation_data.example.csv` | Default for the Sensor Simulator. Override with `DATASET_PATH` env var. |
 | `DATA_INGESTION_URL` | `http://data-ingestion-service:5003/api/ingest/reading` | A Docker-internal DNS name. For local runs set `http://localhost:5003/api/ingest/reading`. |
 | `SEND_INTERVAL_SECONDS` | `3` | How long to wait between readings. |
-
-> Caveat: the target endpoint `/api/ingest/reading` is not implemented in the
-> Data Ingestion Service yet (only `/api/ingest/file` exists), so the
-> simulator cannot register data end-to-end today. See Known Limitations.
 
 #### 7. Frontend Dashboard
 
@@ -355,9 +351,6 @@ system-level design notes in
 
 ### Known limitations
 
-- The sensor simulator posts to `/api/ingest/reading`, but the Data Ingestion
-  Service currently only exposes `/api/ingest/file`. Today data is registered
-  by posting the raw file once; live streaming is future work.
 - The ML model trains on the limited cleaned dataset, so its accuracy may
   differ on new or unseen data.
 

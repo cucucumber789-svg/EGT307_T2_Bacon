@@ -128,7 +128,9 @@ EGT307_T2_Bacon/
 │   ├── database/                  # DATABASE — PostgreSQL init + sensor data
 │   │   ├── init.sql
 │   │   ├── Dockerfile                # Dataset seed image (k8s init container)
-│   │   └── sensor_data.example.csv   # Raw sensor data (ground truth)
+│   │   ├── sensor_data.example.csv   # Raw sensor data (ground truth)
+│   │   ├── sensor_data_cleaned.csv   # Cleaned sensor data (output of ingestion)
+│   │   └── validation_data.example.csv # Test dataset for sensor simulator
 │   │
 │   ├── frontend/                  # FRONTEND — dashboard (HTML/CSS/JS + Chart.js)
 │   │   ├── css/
@@ -233,7 +235,7 @@ in which case they are relative to the service folder inside `components/`.
 | File                                                                  | Purpose |
 |-----------------------------------------------------------------------|---------|
 | `docker-compose.yml`                                                  | Defines all services (backend, ML, notification, ingestion, database, frontend) and how they run together locally. One command starts everything. The Sensor Simulator is not yet defined here. |
-| `sensor_data.csv`                                                     | Raw sensor dataset (ground truth) that the Sensor Simulator replays. |
+| `sensor_data.csv`                                                     | Raw sensor dataset at repo root. Kept for reference; the Sensor Simulator replays `validation_data.example.csv` instead. |
 | `scripts/validate-env.sh`                                             | Shell script for validating `.env`. Used by the `env-validator` Docker container to block startup until all secrets are set. |
 | `scripts/validate-env.py`                                             | Python script for validating `.env` in standalone mode. Loads `.env` into the environment and checks all required variables. |
 | `components/env-validator/Dockerfile`                                 | Minimal alpine container that runs `validate-env.sh` as a healthcheck. Other services depend on it being healthy before starting. |
@@ -263,19 +265,20 @@ in which case they are relative to the service folder inside `components/`.
 | `components/notification-service/requirements.txt`                 | Python dependencies for Notification Service (Flask, requests). |
 | `components/data-ingestion-service/app/main.py`                    | Flask app entry point for Data Ingestion Service. Registers ingestion blueprints. |
 | `components/data-ingestion-service/app/config.py`                  | Stores Backend API URL, `DATA_DIR`, and allowed file formats loaded from environment variables. |
-| `components/data-ingestion-service/app/routers/ingestion.py`       | Defines Flask Blueprint with data intake endpoints (`POST /api/ingest/file`). Accepts CSV/JSON sensor data. |
+| `components/data-ingestion-service/app/routers/ingestion.py`       | Defines Flask Blueprint with data intake endpoints (`POST /api/ingest/file`, `POST /api/ingest/reading`). Accepts CSV/JSON sensor data. |
 | `components/data-ingestion-service/app/services/data_ingestion.py` | Parses raw CSV sensor data (drop columns, rename, coerce types, drop NaN), saves cleaned output to `sensor_data_cleaned.csv`, and forwards records to the Backend API. Also runnable standalone (`python -m app.services.data_ingestion`). |
 | `components/data-ingestion-service/Dockerfile`                     | Container definition for Data Ingestion Service. |
 | `components/data-ingestion-service/requirements.txt`               | Python dependencies for Data Ingestion Service (Flask, requests, pandas). |
 | `components/database/init.sql`                                     | SQL script that runs when PostgreSQL starts. Creates tables. |
 | `components/database/Dockerfile`                                   | Builds the `dataset-seed` image used by a Kubernetes init container to copy `sensor_data.example.csv` into the shared dataset PVC. Build with `docker build -t dataset-seed:latest components/database`. |
 | `components/database/sensor_data.example.csv`                      | Raw sensor data (ground truth) used by the ingestion pipeline. |
+| `components/database/validation_data.example.csv`                  | Test dataset with entry_ids starting at 78033, used by the Sensor Simulator to stream new readings. |
 | `components/frontend/html/dashboard.html`                          | Dashboard page markup. |
 | `components/frontend/css/styles.css`                               | Dashboard styling. |
 | `components/frontend/js/dashboard.js`                              | Dashboard logic. Polls the Backend API for sensor readings and predictions (coloring anomalous points red) and the Notification Service's `GET /api/alerts` for the alert panel, renders charts with Chart.js. |
 | `components/frontend/Dockerfile`                                   | Container definition for the dashboard: nginx serving the static files on port 3000. |
 | `components/frontend/nginx.conf`                                   | nginx server config: listens on 3000, serves `html/`, `css/`, `js/`, and falls back to `dashboard.html`. |
-| `components/sensor/sensor_simulator.py`                            | Simulates an IoT sensor by replaying `sensor_data.csv` row by row and posting each reading to the Data Ingestion Service via REST, one record every few seconds. |
+| `components/sensor/sensor_simulator.py`                            | Simulates an IoT sensor by replaying `validation_data.example.csv` row by row and posting each reading to the Data Ingestion Service via REST, one record every few seconds. |
 | `components/sensor/Dockerfile`                                     | Container definition for the Sensor Simulator. No exposed port — it only makes outgoing requests. |
 | `components/sensor/requirements.txt`                               | Python dependencies for the Sensor Simulator (pandas, requests). |
 | `k8s/*.yaml`                                                          | Kubernetes deployment manifests. Define how each microservice is deployed, exposed, and configured in a cluster. `k8s/database/pvc.yaml` declares the shared dataset volume both ingestion and ML mount. |
@@ -646,9 +649,8 @@ The following items have **not yet been finalised** and are subject to change:
    I chose wk2 dataset because it shows the exact same inferential conclusion as wk 3 dataset and it is not as heavily loaded compared to wk 3 dataset.
 
 3. **Live Sensor → Ingestion link** — The sensor simulator posts to
-   `/api/ingest/reading`, but ingestion currently only exposes
-   `/api/ingest/file`. Wiring the simulator to register readings live (and
-   accumulate them into the dataset) is future work; today data is registered
-   by posting the raw file once.
+   `/api/ingest/reading`, which is now implemented in the Data Ingestion
+   Service. Each reading is validated, formatted, and forwarded to the
+   Backend API for storage.
 
 ---
