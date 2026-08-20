@@ -20,10 +20,11 @@ import requests
 # ======================================================
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_DIR = os.path.join(SCRIPT_DIR, "..", "database")
 
 DATASET_PATH = os.environ.get(
     "DATASET_PATH",
-    os.path.join(SCRIPT_DIR, "sensor_data.csv")
+    os.path.join(DATABASE_DIR, "validation_data.example.csv")
 )
 
 DATA_INGESTION_URL = os.environ.get(
