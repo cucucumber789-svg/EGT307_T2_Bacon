@@ -106,6 +106,7 @@ send` instead of messaging anyone.
 
 First-run data flow:
 
+**Bash:**
 ```bash
 # 1. Register the raw dataset once (cleans it and forwards rows to the backend)
 curl -X POST http://localhost:5003/api/ingest/file
@@ -119,7 +120,34 @@ curl -X POST http://localhost:5000/api/predict \
   -d '{"temperature":45,"humidity":90,"air_quality":1}'
 
 # 4. Open the dashboard
-#    http://localhost:3000/
+#    http://localhost:3000/html/dashboard.html
+```
+
+**PowerShell:**
+```powershell
+# 1. Register the raw dataset once (cleans it and forwards rows to the backend)
+Invoke-RestMethod -Uri http://localhost:5003/api/ingest/file -Method Post
+
+# 2. Confirm readings are stored
+Invoke-RestMethod -Uri "http://localhost:5000/api/sensors?limit=5"
+
+# 3. Trigger the ML model (lazy training) and store an anomaly prediction
+Invoke-RestMethod -Uri http://localhost:5000/api/predict -Method Post `
+  -ContentType "application/json" `
+  -Body '{"temperature":45,"humidity":90,"air_quality":1}'
+
+# 4. Open the dashboard
+Start-Process "http://localhost:3000/html/dashboard.html"
+```
+
+Verify each service is healthy:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/          # Frontend
+Invoke-RestMethod http://localhost:5000/          # Backend API
+Invoke-RestMethod http://localhost:5001/          # ML Service
+Invoke-RestMethod http://localhost:5002/          # Notification Service
+Invoke-RestMethod http://localhost:5003/          # Data Ingestion
 ```
 
 ### Option B — Kubernetes
