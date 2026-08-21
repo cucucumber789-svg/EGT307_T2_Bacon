@@ -46,7 +46,6 @@ All components are containerised with Docker and deployed via Kubernetes.
 ```
 EGT307_T2_Bacon/
 ├── docker-compose.yml             # Local multi-service development
-├── sensor_data.csv                # Raw sensor dataset (ground truth)
 ├── EGT307 PRESENTATION.pptx       # Project presentation
 ├── EGT307_Contribution.docx       # Individual contribution breakdown
 │
@@ -235,7 +234,6 @@ in which case they are relative to the service folder inside `components/`.
 | File                                                                  | Purpose |
 |-----------------------------------------------------------------------|---------|
 | `docker-compose.yml`                                                  | Defines all services (backend, ML, notification, ingestion, database, frontend) and how they run together locally. One command starts everything. The Sensor Simulator is not yet defined here. |
-| `sensor_data.csv`                                                     | Raw sensor dataset at repo root. Kept for reference; the Sensor Simulator replays `validation_data.example.csv` instead. |
 | `scripts/validate-env.sh`                                             | Shell script for validating `.env`. Used by the `env-validator` Docker container to block startup until all secrets are set. |
 | `scripts/validate-env.py`                                             | Python script for validating `.env` in standalone mode. Loads `.env` into the environment and checks all required variables. |
 | `components/env-validator/Dockerfile`                                 | Minimal alpine container that runs `validate-env.sh` as a healthcheck. Other services depend on it being healthy before starting. |
