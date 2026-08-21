@@ -118,18 +118,24 @@ main {
 /* ---------- ML Analysis panel ---------- */
 
 #ml-status {
-    margin-top: 30px;
+    margin-top: 40px;
     border: 2px solid black;
     border-radius: 10px;
     background-color: white;
-    padding: 16px 20px 20px;
+    padding: 20px 24px 24px;
+}
+
+#ml-status > .metric-label {
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e0e0e0;
 }
 
 .ml-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 10px;
+    gap: 16px;
+    margin-bottom: 16px;
 }
 
 .ml-row:last-child {
@@ -146,20 +152,22 @@ main {
     font-weight: bold;
     font-size: 1rem;
     min-width: 80px;
+    text-align: right;
 }
 
 .severity-bar {
     flex: 1;
-    height: 20px;
-    background-color: #e0e0e0;
-    border-radius: 10px;
+    height: 32px;
+    background-color: #e8e8e8;
+    border-radius: 8px;
     overflow: hidden;
+    border: 2px solid #999;
 }
 
 .severity-fill {
     height: 100%;
     width: 0%;
-    border-radius: 10px;
+    border-radius: 8px;
     transition: width 0.3s ease, background-color 0.3s ease;
     background-color: #2e9e5b;
 }
@@ -183,8 +191,8 @@ main {
     }
     .ml-row {
         flex-direction: column;
-        align-items: flex-start;
-        gap: 6px;
+        align-items: stretch;
+        gap: 8px;
     }
     .severity-bar {
         width: 100%;
