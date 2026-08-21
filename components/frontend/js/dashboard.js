@@ -111,9 +111,12 @@ function buildAnomalySet(predictions) {
     return set;
 }
 
-// Sends a GET request to Backend API and returns the parsed JSON.
+// Sends a GET request and returns the parsed JSON.
+// Relative paths (e.g. "/sensors") are resolved against the Backend API;
+// absolute URLs (e.g. the Notification Service /alerts endpoint) are used as-is.
 async function fetchJSON(path) {
-    const res = await fetch(CONFIG.API_BASE + path);
+    const url = path.startsWith("http") ? path : CONFIG.API_BASE + path;
+    const res = await fetch(url);
     if (!res.ok) throw new Error(path + " -> " + res.status);
     return res.json();
 }
