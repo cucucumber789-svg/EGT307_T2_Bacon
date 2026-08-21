@@ -11,8 +11,6 @@ conditions, and keeps the most recent alerts in memory for the dashboard.
 - The service sends a Telegram message for each alert and records it in an
   in-memory list.
 - The **dashboard** reads the alerts with `GET /api/alerts`.
-- The endpoint also works standalone: POST a reading directly and the service
-  checks it against its own thresholds.
 
 ## Flow
 
@@ -110,18 +108,12 @@ everyone using the same deployment, and are never committed to the repo.
 
 ## Configuration
 
-All values come from environment variables. The threshold defaults also live
-in code (`app/main.py`) and the same numbers are set explicitly in
-`docker-compose.yml` and the k8s ConfigMap, so behaviour is identical whether
-or not the variables are set.
+All values come from environment variables.
 
 | Variable                | Default | Secret? | Purpose                              |
 |-------------------------|---------|---------|--------------------------------------|
 | `TELEGRAM_BOT_TOKEN`    | `""`    | yes     | Telegram bot token (from BotFather)  |
 | `TELEGRAM_CHAT_ID`      | `""`    | yes     | Chat/group to send alerts to         |
-| `TEMP_THRESHOLD`        | `39`    | no      | Temperature above this triggers alert|
-| `HUMIDITY_THRESHOLD`    | `55`    | no      | Humidity above this triggers alert   |
-| `AQ_THRESHOLD`          | `2`     | no      | Air quality at/below this triggers alert |
 
 If the token or chat id is empty, the service skips the Telegram send and
 prints `Telegram not configured, skipping send: <message>`. On startup it
@@ -190,12 +182,11 @@ docker-compose up --build
 ```
 
 Compose interpolates `${TELEGRAM_BOT_TOKEN}` / `${TELEGRAM_CHAT_ID}` from that
-file. Thresholds are already set in the `notification-service` environment.
+file.
 
 ### Kubernetes
 
-The ConfigMap (`k8s/notification-service/configmap.yaml`) holds the
-thresholds. Create the Secret with the real credentials (never commit them):
+Create the Secret with the real credentials (never commit them):
 
 ```
 kubectl create secret generic telegram-credentials \
@@ -208,36 +199,24 @@ showing the expected keys.
 
 ## Usage
 
-### Trigger a check / alert directly
+### Trigger an alert directly
 
-`POST /api/notify` with a reading. When the `alerts` list is provided it is
-sent verbatim (this is how the backend forwards the ML model's messages);
-otherwise the service derives the messages from its thresholds.
+`POST /api/notify` with a reading and an `alerts` list. The service sends
+each alert via Telegram and records it for the dashboard.
 
 ```bash
-# Backend-style call: use the ML model's messages
+# Bash
 curl -X POST http://localhost:5002/api/notify \
   -H "Content-Type: application/json" \
   -d '{"temperature":40,"humidity":80,"air_quality":3,"alerts":["High temperature detected!"]}'
 # -> 200 {"triggered": ["High temperature detected!"]}
-
-# Direct call: derive from thresholds
-curl -X POST http://localhost:5002/api/notify \
-  -H "Content-Type: application/json" \
-  -d '{"temperature":40,"humidity":80,"air_quality":3}'
-# -> 200 {"triggered": ["High temperature detected!", "High humidity detected!"]}
 ```
 
 ```powershell
-# PowerShell — backend-style call
+# PowerShell
 Invoke-RestMethod -Uri http://localhost:5002/api/notify -Method Post `
   -ContentType "application/json" `
   -Body '{"temperature":40,"humidity":80,"air_quality":3,"alerts":["High temperature detected!"]}'
-
-# PowerShell — direct call (derive from thresholds)
-Invoke-RestMethod -Uri http://localhost:5002/api/notify -Method Post `
-  -ContentType "application/json" `
-  -Body '{"temperature":40,"humidity":80,"air_quality":3}'
 ```
 
 ### Read recent alerts
