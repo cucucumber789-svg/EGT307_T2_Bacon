@@ -38,9 +38,6 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
-      - TEMP_THRESHOLD=39
-      - HUMIDITY_THRESHOLD=55
-      - AQ_THRESHOLD=2
     depends_on:
       env-validator:
         condition: service_healthy

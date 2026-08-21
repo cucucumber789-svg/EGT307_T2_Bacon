@@ -1,13 +1,9 @@
 """
 notification-service/app/main.py
 
-Notification Service - checks each incoming sensor reading against 3
-simple thresholds, and if one is crossed: sends a Telegram message and
-saves the alert so the dashboard can display it.
-
-    temperature > 39   -> "High temperature detected!"
-    humidity    > 55   -> "High humidity detected!"
-    air_quality <= 2   -> "Poor air quality detected!"
+Notification Service — receives ML-flagged alerts from the Backend API and
+sends them via Telegram. This service does NOT make alerting decisions;
+the ML model decides what is anomalous and passes alert messages here.
 """
 
 import os
@@ -22,30 +18,13 @@ load_dotenv()  # auto-load .env from repo root for standalone mode
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
-# Thresholds are config, not secrets - overridable per deployment.
-TEMP_THRESHOLD = float(os.environ.get("TEMP_THRESHOLD", "39"))
-HUMIDITY_THRESHOLD = float(os.environ.get("HUMIDITY_THRESHOLD", "55"))
-AQ_THRESHOLD = float(os.environ.get("AQ_THRESHOLD", "2"))
-
 # Alerts are kept here in memory so the dashboard can GET /api/alerts and
 # show them; simple on purpose, resets if the service restarts.
 recent_alerts = []
 
 
-def check_conditions(temperature, humidity, air_quality):
-    #"Compare one reading against the 3 thresholds, return the alert messages that apply."
-    messages = []
-    if temperature > TEMP_THRESHOLD:
-        messages.append("High temperature detected!")
-    if humidity > HUMIDITY_THRESHOLD:
-        messages.append("High humidity detected!")
-    if air_quality <= AQ_THRESHOLD:
-        messages.append("Poor air quality detected!")
-    return messages
-
-
 def send_telegram(message):
-    #"Send one message to the Telegram chat bot"
+    """Send one message to the Telegram chat bot."""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("Telegram not configured, skipping send:", message)
         return
@@ -82,31 +61,20 @@ def create_app():
         if not data:
             return jsonify({"error": "No JSON payload provided"}), 400
 
-        required = ["temperature", "humidity", "air_quality"]
-        missing = [f for f in required if f not in data]
-        if missing:
-            return jsonify({"error": f"Missing fields: {missing}"}), 400
-
-        temperature = float(data["temperature"])
-        humidity = float(data["humidity"])
-        air_quality = float(data["air_quality"])
-
-        # When the Backend API triggers us, it passes the ML model's alert
-        # messages so Telegram text matches what the model flagged. A direct
-        # call (e.g. the dashboard) omits them and we derive them ourselves.
-        provided = data.get("alerts")
-        triggered = provided if provided else check_conditions(temperature, humidity, air_quality)
+        # The Backend API passes the ML model's alert messages.
+        # This service is a pure sender — it does not decide what to alert on.
+        triggered = data.get("alerts", [])
 
         for message in triggered:
             send_telegram(message)
             recent_alerts.insert(0, {
                 "message": message,
-                "temperature": temperature,
-                "humidity": humidity,
-                "air_quality": air_quality,
+                "temperature": data.get("temperature"),
+                "humidity": data.get("humidity"),
+                "air_quality": data.get("air_quality"),
                 "created_at": datetime.now(timezone.utc).isoformat(),
             })
-        del recent_alerts[50:]  # keep only the 50 most recent, so this can't grow forever
+        del recent_alerts[50:]  # keep only the 50 most recent
 
         return jsonify({"triggered": triggered}), 200
 

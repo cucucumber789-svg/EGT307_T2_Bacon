@@ -255,12 +255,12 @@ in which case they are relative to the service folder inside `components/`.
 | `components/backend-api/Dockerfile`                                | Tells Docker how to build the backend container — installs dependencies, copies code, runs the app. |
 | `components/backend-api/requirements.txt`                          | Lists all Python packages the project needs (Flask, SQLAlchemy, etc.). |
 | `components/ml-service/app/main.py`                                | Flask app entry point for ML Service. Trains the IsolationForest model at startup when the cleaned dataset exists, otherwise starts idle and reports `model_ready: false`; registers the prediction blueprint. |
-| `components/ml-service/app/config.py`                              | Stores dataset path, IsolationForest hyperparameters, and alert thresholds. All values overridable via environment variables (e.g. `DATASET_PATH`). |
+| `components/ml-service/app/config.py`                              | Stores dataset path, IsolationForest hyperparameters, and severity steepness. Safety-net threshold (`ABSOLUTE_MAX_TEMP`) for extreme values. All values overridable via environment variables. |
 | `components/ml-service/app/routers/prediction.py`                  | Defines Flask Blueprint with prediction endpoints (`POST /api/predict`, `POST /api/predict/batch`). Retries lazy training on demand and returns 503 with an actionable message when no dataset is available yet. |
-| `components/ml-service/app/services/model_service.py`              | Contains the scikit-learn **IsolationForest** anomaly-detection logic: `load_dataset()` reads the cleaned CSV, `train_model()` fits the forest, `check_thresholds()` flags readings, and `predict()` returns anomaly score, severity, and alerts. |
+| `components/ml-service/app/services/model_service.py`              | Contains the scikit-learn **IsolationForest** anomaly-detection logic: `load_dataset()` reads the cleaned CSV, `train_model()` fits the forest, `predict()` returns anomaly score, severity, and alerts based on the model decision boundary. No hardcoded alert thresholds — the model decides. |
 | `components/ml-service/Dockerfile`                                 | Container definition for ML Service. |
 | `components/ml-service/requirements.txt`                           | Python dependencies for ML Service (Flask + ML framework TBD). |
-| `components/notification-service/app/main.py`                      | Single-file Flask app for the Notification Service. Accepts readings via `POST /api/notify`: when the payload includes the ML model's `alerts` list it sends those verbatim, otherwise it derives them from the 3 env-configurable thresholds (`TEMP_THRESHOLD` 39, `HUMIDITY_THRESHOLD` 55, `AQ_THRESHOLD` 2). Sends Telegram alerts via the Telegram Bot API using `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` env vars, and keeps the 50 most recent alerts in memory for the dashboard (`GET /api/alerts`). |
+| `components/notification-service/app/main.py`                      | Single-file Flask app for the Notification Service. Pure message sender — receives ML-generated alert messages from the Backend API via `POST /api/notify` and sends them via Telegram. No alerting decisions are made here. Keeps the 50 most recent alerts in memory for the dashboard (`GET /api/alerts`). |
 | `components/notification-service/Dockerfile`                       | Container definition for Notification Service. |
 | `components/notification-service/requirements.txt`                 | Python dependencies for Notification Service (Flask, requests). |
 | `components/data-ingestion-service/app/main.py`                    | Flask app entry point for Data Ingestion Service. Registers ingestion blueprints. |
@@ -362,25 +362,21 @@ This keeps routes organised by feature instead of having everything in one file.
   called by the Backend API when the ML model flags a reading as anomalous
   (`store_prediction`). One notification per anomalous reading — rare events
   in an early-warning system must not be delayed or coalesced away
+- **ML model is the single source of truth** — Alerting decisions are driven
+  entirely by the IsolationForest model's anomaly score. The notification
+  service is a pure message sender — it does not make alerting decisions
+- **Safety-net threshold** — The ML service has one hardcoded safety-net
+  (`ABSOLUTE_MAX_TEMP = 50°C`) for physically dangerous values that may fall
+  outside the training distribution. The IsolationForest should catch these,
+  but this provides a hard floor
 - **Two onboarding paths** — First-time users self-provision a bot via
   BotFather (token + chat id into `.env` / Secret). Teams can instead reuse
   one bot in a shared Telegram group: the owner adds the bot to the group and
   groupmates simply join, with credentials staying in the shared deployment
   config. The `/` health endpoint exposes `telegram_configured` so a new user
   can confirm their setup
-- **ML alert messages win** — The backend passes the ML model's `alerts` list
-  with the reading, so Telegram text always matches what the model flagged.
-  Direct callers (e.g. the dashboard) may omit it and the notification service
-  derives messages from its own thresholds
-- **Defaults in code, overrides in config** — Each threshold is read as
-  `os.environ.get("<NAME>", "<default>")`, so the service works standalone
-  with the built-in values (39 / 55 / 2). The compose file and k8s ConfigMap
-  set the same numbers explicitly to override per deployment, keeping
-  behaviour identical whether or not environment variables are set
-- **Thresholds are config, credentials are secrets** — `TEMP_THRESHOLD`,
-  `HUMIDITY_THRESHOLD`, `AQ_THRESHOLD` live in the compose file / k8s
-  ConfigMap. `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are injected from a
-  local `.env` for compose (git-ignored) or a k8s `Secret`
+- **Credentials are secrets** — `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`
+  are injected from a local `.env` for compose (git-ignored) or a k8s `Secret`
   (`k8s/notification-service/secret.example.yaml` is a placeholder template;
   create the real one with `kubectl create secret generic telegram-credentials
   --from-literal=TELEGRAM_BOT_TOKEN=... --from-literal=TELEGRAM_CHAT_ID=...`)

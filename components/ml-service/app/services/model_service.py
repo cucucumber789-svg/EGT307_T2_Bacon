@@ -6,8 +6,8 @@ Design:
 - The service trains a scikit-learn IsolationForest on startup from the
   CLEANED dataset produced by the data ingestion service
   (sensor_data_cleaned.csv). It does not do its own cleaning.
-- `predict()` combines the IsolationForest anomaly flag with simple alert
-  thresholds and returns a single prediction payload.
+- `predict()` uses the IsolationForest anomaly score as the sole alerting
+  decision, with an optional safety-net threshold for extreme values.
 
 Usage:
     from app.services.model_service import load_dataset, train_model, predict
@@ -55,12 +55,7 @@ def train_model(df):
 
 
 def train_if_available(path):
-    """Load the cleaned dataset and train, or return None if it does not exist.
-
-    Single source of the graceful missing-data handling: the Flask app, the
-    lazy prediction routes, and the standalone script all call this so the
-    behaviour stays identical everywhere.
-    """
+    """Load the cleaned dataset and train, or return None if it does not exist."""
     try:
         df = load_dataset(path)
     except FileNotFoundError:
@@ -70,56 +65,42 @@ def train_if_available(path):
     return model
 
 
-def check_thresholds(temperature, humidity, air_quality):
-    """Compare one reading against the alert thresholds and return alert messages."""
-    alerts = []
-
-    if temperature > Config.TEMP_HIGH:
-        alerts.append(
-            f"High Temperature detected: {temperature}\u00b0C "
-            f"(threshold: {Config.TEMP_HIGH}\u00b0C)"
-        )
-    elif temperature < Config.TEMP_LOW:
-        alerts.append(
-            f"Low Temperature detected: {temperature}\u00b0C "
-            f"(threshold: {Config.TEMP_LOW}\u00b0C)"
-        )
-
-    if humidity > Config.HUMIDITY_HIGH:
-        alerts.append(
-            f"High Humidity detected: {humidity}% "
-            f"(threshold: {Config.HUMIDITY_HIGH}%)"
-        )
-    elif humidity < Config.HUMIDITY_LOW:
-        alerts.append(
-            f"Low Humidity detected: {humidity}% "
-            f"(threshold: {Config.HUMIDITY_LOW}%)"
-        )
-
-    if air_quality > Config.AIR_QUALITY_HIGH:
-        alerts.append(
-            f"Poor Air Quality detected: {air_quality} AQI "
-            f"(threshold: {Config.AIR_QUALITY_HIGH} AQI)"
-        )
-
-    return alerts
-
-
 def predict(model, entry_id, created_at, temperature, humidity, air_quality):
-    """Run a prediction on a single reading and return the result payload."""
+    """Run a prediction on a single reading and return the result payload.
+
+    Alerting is driven entirely by the IsolationForest model score:
+    - model.predict() returns -1 for anomalies, 1 for normal
+    - model.decision_function() returns the signed distance to the boundary
+      (negative = anomaly, positive = normal)
+
+    The only hardcoded check is a safety-net for physically dangerous values
+    (e.g. temperature > 50C) that may fall outside the training distribution.
+    """
     X = np.array([[temperature, humidity, air_quality]])
 
     raw_prediction = model.predict(X)[0]       # 1 = normal, -1 = anomaly
-    raw_score = model.decision_function(X)[0]  # negative = anomaly, positive = normal
-    ml_flagged = raw_prediction == -1
+    raw_score = model.decision_function(X)[0]  # negative = anomaly
 
-    alerts = check_thresholds(temperature, humidity, air_quality)
+    alerts = []
+    if raw_prediction == -1:
+        alerts.append(
+            f"Anomaly detected: {temperature}\u00b0C / {humidity}% / AQI {air_quality} "
+            f"(score: {raw_score:.3f})"
+        )
+
+    # Safety-net: absolute maximum for physically dangerous values
+    if temperature > Config.ABSOLUTE_MAX_TEMP:
+        alerts.append(
+            f"CRITICAL: Temperature {temperature}\u00b0C exceeds "
+            f"absolute maximum ({Config.ABSOLUTE_MAX_TEMP}\u00b0C)"
+        )
+
     severity = 1 / (1 + np.exp(Config.SEVERITY_STEEPNESS * raw_score))
 
     return {
         "entry_id": entry_id,
         "created_at": created_at,
-        "is_anomaly": bool(ml_flagged or alerts),
+        "is_anomaly": bool(alerts),
         "anomaly_score": round(float(raw_score), 5),
         "severity": round(float(severity), 4),
         "alerts": alerts,
@@ -142,10 +123,6 @@ def _print_prediction(result):
 
 
 if __name__ == "__main__":
-    # Standalone mode: train and sanity-check the model without starting the
-    # Flask server. Mirrors the service's error handling - if the cleaned
-    # dataset does not exist yet, print the same not-trained message the
-    # API returns as a 503 and exit instead of crashing.
     path = Config.DATASET_PATH
     model = train_if_available(path)
     if model is None:

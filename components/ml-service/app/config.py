@@ -6,6 +6,8 @@ Design:
   service (sensor_data_cleaned.csv), NOT raw data.
 - All values are loaded from environment variables with sensible local
   defaults, so no secrets or machine-specific values live in code.
+- Alerting is driven by the IsolationForest model, not hardcoded thresholds.
+  The only safety net is ABSOLUTE_MAX_TEMP for physically dangerous values.
 """
 
 import os
@@ -32,12 +34,9 @@ class Config:
     CONTAMINATION = float(os.environ.get("CONTAMINATION", "0.02"))
     RANDOM_STATE = int(os.environ.get("RANDOM_STATE", "42"))
 
-    # Alert thresholds (env-overridable)
-    TEMP_LOW = float(os.environ.get("TEMP_LOW", "25.0"))
-    TEMP_HIGH = float(os.environ.get("TEMP_HIGH", "30.0"))
-    HUMIDITY_LOW = float(os.environ.get("HUMIDITY_LOW", "60.0"))
-    HUMIDITY_HIGH = float(os.environ.get("HUMIDITY_HIGH", "77.0"))
-    AIR_QUALITY_HIGH = float(os.environ.get("AIR_QUALITY_HIGH", "49.0"))
+    # Safety-net threshold: absolute maximum for physically dangerous values.
+    # The IsolationForest should catch these, but this is a hard floor.
+    ABSOLUTE_MAX_TEMP = float(os.environ.get("ABSOLUTE_MAX_TEMP", "50.0"))
 
-    # How sharply severity rises from 0 to 1 near the threshold
+    # How sharply severity rises from 0 to 1 near the decision boundary
     SEVERITY_STEEPNESS = float(os.environ.get("SEVERITY_STEEPNESS", "10.0"))
