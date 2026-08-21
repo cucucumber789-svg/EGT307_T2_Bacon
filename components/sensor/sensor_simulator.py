@@ -5,9 +5,14 @@ This program simulates an IoT sensor by reading data from a CSV file.
 It sends one reading at a time to the Data Ingestion Service every few
 seconds. When it reaches the end of the dataset, it starts again from
 the beginning to simulate a continuous sensor.
+
+Each loop pass applies random jitter to values and uses unique entry_ids
+so readings look diverse. Synthetic anomalies (~5% chance) inject extreme
+values to trigger ML alerts for demo purposes.
 """
 
 import os
+import random
 import time
 from datetime import datetime, timezone
 
@@ -35,6 +40,9 @@ DATA_INGESTION_URL = os.environ.get(
 SEND_INTERVAL_SECONDS = float(
     os.environ.get("SEND_INTERVAL_SECONDS", "3")
 )
+
+# Anomaly injection rate: ~5% of readings will be synthetic anomalies
+ANOMALY_RATE = float(os.environ.get("ANOMALY_RATE", "0.05"))
 
 # ======================================================
 # Column Names
@@ -74,29 +82,84 @@ def load_dataset(path):
 
 # ======================================================
 # Create Sensor Reading
-# Convert one row into a sensor reading.
+# Convert one row into a sensor reading with jitter.
 # ======================================================
 
-def build_reading(row):
+def build_reading(row, entry_id_counter):
     """Convert one dataset row into the JSON payload the API expects.
 
-    created_at is stamped with the current UTC time (not the CSV value) so
-    readings look live as they stream in.
+    Adds random jitter to temperature (+/-2), humidity (+/-5), and
+    air_quality (+/-1) so each loop pass produces diverse readings.
+    Uses a counter for unique entry_ids across loop passes.
     """
+
+    temperature = float(row["temperature"]) + random.uniform(-2.0, 2.0)
+    humidity = float(row["humidity"]) + random.uniform(-5.0, 5.0)
+    air_quality = int(row["air_quality"]) + random.randint(-1, 1)
+
+    # Clamp to realistic ranges
+    temperature = max(15.0, min(50.0, temperature))
+    humidity = max(20.0, min(100.0, humidity))
+    air_quality = max(1, min(5, air_quality))
 
     return {
 
-        "entry_id": int(row["entry_id"]),
+        "entry_id": entry_id_counter,
 
         "created_at": datetime.now(
             timezone.utc
         ).isoformat(),
 
-        "temperature": float(row["temperature"]),
+        "temperature": round(temperature, 2),
 
-        "humidity": float(row["humidity"]),
+        "humidity": round(humidity, 2),
 
-        "air_quality": int(row["air_quality"])
+        "air_quality": air_quality
+
+    }
+
+
+# ======================================================
+# Synthetic Anomaly Generator
+# Create extreme readings to trigger ML alerts.
+# ======================================================
+
+def build_anomaly_reading(entry_id_counter):
+    """Generate a synthetic anomaly with extreme values.
+
+    Randomly picks one of three anomaly types: extreme temperature,
+    extreme humidity, or extreme air quality. These are designed to
+    be flagged by the IsolationForest model.
+    """
+
+    anomaly_type = random.choice(["temp", "humidity", "aq"])
+
+    if anomaly_type == "temp":
+        temperature = random.uniform(40.0, 55.0)
+        humidity = random.uniform(60.0, 80.0)
+        air_quality = random.randint(2, 4)
+    elif anomaly_type == "humidity":
+        temperature = random.uniform(25.0, 35.0)
+        humidity = random.uniform(85.0, 100.0)
+        air_quality = random.randint(2, 4)
+    else:
+        temperature = random.uniform(25.0, 35.0)
+        humidity = random.uniform(60.0, 80.0)
+        air_quality = random.choice([1, 5])
+
+    return {
+
+        "entry_id": entry_id_counter,
+
+        "created_at": datetime.now(
+            timezone.utc
+        ).isoformat(),
+
+        "temperature": round(temperature, 2),
+
+        "humidity": round(humidity, 2),
+
+        "air_quality": air_quality
 
     }
 
@@ -137,17 +200,28 @@ def send_reading(reading):
 # ======================================================
 
 def main():
-    """Replay the dataset forever, one reading every SEND_INTERVAL_SECONDS."""
+    """Replay the dataset forever, one reading every SEND_INTERVAL_SECONDS.
+
+    Each loop pass applies jitter and uses unique entry_ids.
+    ~5% of readings are synthetic anomalies to trigger ML alerts.
+    """
 
     print("Sensor Simulator Started")
 
     dataset = load_dataset(DATASET_PATH)
 
+    entry_id_counter = 1
+
     while True:
 
         for _, row in dataset.iterrows():
 
-            reading = build_reading(row)
+            if random.random() < ANOMALY_RATE:
+                reading = build_anomaly_reading(entry_id_counter)
+            else:
+                reading = build_reading(row, entry_id_counter)
+
+            entry_id_counter += 1
 
             send_reading(reading)
 
