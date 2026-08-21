@@ -21,6 +21,7 @@ REQUIRED_FIELDS = ["entry_id", "created_at", "temperature", "humidity", "air_qua
 
 @prediction_bp.route("/predict", methods=["POST"])
 def predict():
+    """On-demand prediction: validate, ask the ML service, store and return it."""
     data = request.get_json()
     if not data:
         return jsonify({"error": "No JSON payload provided"}), 400
@@ -49,6 +50,7 @@ def predict():
 
 @prediction_bp.route("/predictions", methods=["GET"])
 def list_predictions():
+    """Return the most recent stored predictions, newest first (dashboard)."""
     limit = request.args.get("limit", 100, type=int)
     db = SessionLocal()
     try:

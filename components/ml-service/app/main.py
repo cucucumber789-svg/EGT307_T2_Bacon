@@ -30,6 +30,7 @@ def create_app():
 
     @app.route("/")
     def health():
+        # Liveness probe; model_ready tells callers whether predictions work yet.
         return jsonify({
             "status": "ok",
             "service": "ml-service",

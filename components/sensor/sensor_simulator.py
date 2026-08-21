@@ -53,6 +53,11 @@ COLUMN_MAP = {
 # ======================================================
 
 def load_dataset(path):
+    """Read the CSV and keep only the columns needed for a reading.
+
+    Renames field1/2/3 to meaningful names and drops rows with missing
+    values so every sent reading is complete.
+    """
 
     df = pd.read_csv(path)
 
@@ -73,6 +78,11 @@ def load_dataset(path):
 # ======================================================
 
 def build_reading(row):
+    """Convert one dataset row into the JSON payload the API expects.
+
+    created_at is stamped with the current UTC time (not the CSV value) so
+    readings look live as they stream in.
+    """
 
     return {
 
@@ -97,6 +107,11 @@ def build_reading(row):
 # ======================================================
 
 def send_reading(reading):
+    """POST one reading to the Data Ingestion Service.
+
+    Never raises: a simulator must keep running when the service is
+    temporarily down, so failures are printed and the loop continues.
+    """
 
     try:
 
@@ -122,6 +137,7 @@ def send_reading(reading):
 # ======================================================
 
 def main():
+    """Replay the dataset forever, one reading every SEND_INTERVAL_SECONDS."""
 
     print("Sensor Simulator Started")
 

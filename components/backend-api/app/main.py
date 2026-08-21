@@ -7,8 +7,16 @@ from app.routers.sensor import sensor_bp
 
 
 def create_app():
+    """Flask application factory.
+
+    Creates any missing tables at startup (dev convenience), mounts both
+    route blueprints under /api, and adds permissive CORS headers so the
+    browser-based dashboard can call this API directly.
+    """
     app = Flask(__name__)
 
+    # Dev convenience: auto-create tables so a fresh database works without
+    # running migrations by hand.
     Base.metadata.create_all(bind=engine)
 
     app.register_blueprint(sensor_bp, url_prefix="/api")
@@ -26,6 +34,7 @@ def create_app():
 
     @app.route("/")
     def health():
+        # Liveness probe / quick check that the service is up.
         return jsonify({"status": "ok", "service": "backend-api"})
 
     return app
