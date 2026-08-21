@@ -35,6 +35,12 @@ const humidityValueEl = document.getElementById("humidity-value");  // big numbe
 const aqValueEl = document.getElementById("aq-value");               // big number showing the latest air quality level
 const aqUnitEl = document.getElementById("aq-unit");                 // word next to it, e.g. "Good" or "Poor"
 
+// ---------- ML status elements ----------
+const severityFillEl = document.getElementById("severity-fill");     // severity bar fill
+const severityValueEl = document.getElementById("severity-value");   // severity number
+const anomalyScoreEl = document.getElementById("anomaly-score");     // anomaly score number
+const mlStatusTextEl = document.getElementById("ml-status-text");    // "Normal" or "Anomaly" text
+
 // ---------- charts ----------
 
 // Creates one small line chart in the given canvas, starting empty.
@@ -174,6 +180,49 @@ function setAlert(state, title, detail) {
     alertDetailEl.textContent = detail;
 }
 
+// Updates the ML Analysis panel with severity, anomaly score, and status.
+function updateMLStatus(prediction) {
+    if (!prediction) {
+        severityFillEl.style.width = "0%";
+        severityValueEl.textContent = "\u2014";
+        anomalyScoreEl.textContent = "\u2014";
+        mlStatusTextEl.textContent = "\u2014";
+        mlStatusTextEl.className = "ml-value";
+        return;
+    }
+
+    const severity = prediction.severity || 0;
+    const score = prediction.anomaly_score || 0;
+    const isAnomaly = prediction.is_anomaly;
+
+    // Update severity bar width and color
+    const severityPercent = Math.round(severity * 100);
+    severityFillEl.style.width = severityPercent + "%";
+
+    if (severity < 0.3) {
+        severityFillEl.style.backgroundColor = "#2e9e5b";  // green
+    } else if (severity < 0.7) {
+        severityFillEl.style.backgroundColor = "#f0ad4e";  // yellow
+    } else {
+        severityFillEl.style.backgroundColor = "#d6455b";  // red
+    }
+
+    // Update severity value
+    severityValueEl.textContent = severity.toFixed(2);
+
+    // Update anomaly score
+    anomalyScoreEl.textContent = score.toFixed(4);
+
+    // Update status text
+    if (isAnomaly) {
+        mlStatusTextEl.textContent = "Anomaly";
+        mlStatusTextEl.className = "ml-value anomaly";
+    } else {
+        mlStatusTextEl.textContent = "Normal";
+        mlStatusTextEl.className = "ml-value normal";
+    }
+}
+
 // ---------- main polling loop ----------
 
 // Runs on a timer: fetches sensor data, updates the charts, then checks and shows alerts.
@@ -192,14 +241,19 @@ async function refresh() {
     // Predictions are best-effort: a failure here just leaves the points
     // uncolored. Only used to color anomalous points red on the charts below.
     let anomalyEntryIds = new Set();
+    let latestPrediction = null;
     try {
         const predictions = await fetchJSON("/predictions?limit=" + CONFIG.HISTORY_POINTS);
         anomalyEntryIds = buildAnomalySet(predictions);
+        if (predictions.length > 0) {
+            latestPrediction = predictions[0]; // newest first
+        }
     } catch (err) {
         // prediction lookup failed - charts just show uncolored points
     }
 
     updateCharts(readings, anomalyEntryIds);
+    updateMLStatus(latestPrediction);
 
     // Notification Service: the Backend API sends alerts here when the ML
     // model flags an anomaly, so the panel just shows the most recent one.

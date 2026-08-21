@@ -41,6 +41,27 @@
                     <canvas id="aq-chart"></canvas>
                 </div>
             </div>
+
+            <!-- ML Analysis panel. Shows severity meter, anomaly score,
+                 and model status from the latest prediction. -->
+            <div id="ml-status">
+                <p class="metric-label">ML Analysis</p>
+                <div class="ml-row">
+                    <span class="ml-label">Severity</span>
+                    <div class="severity-bar">
+                        <div id="severity-fill" class="severity-fill"></div>
+                    </div>
+                    <span id="severity-value" class="ml-value">&mdash;</span>
+                </div>
+                <div class="ml-row">
+                    <span class="ml-label">Anomaly Score</span>
+                    <span id="anomaly-score" class="ml-value">&mdash;</span>
+                </div>
+                <div class="ml-row">
+                    <span class="ml-label">Status</span>
+                    <span id="ml-status-text" class="ml-value">&mdash;</span>
+                </div>
+            </div>
         </main>
 
         <!-- Chart.js draws the temperature/humidity/air-quality history on

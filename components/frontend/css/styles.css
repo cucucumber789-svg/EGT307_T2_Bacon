@@ -115,11 +115,78 @@ main {
     height: 260px !important;
 }
 
+/* ---------- ML Analysis panel ---------- */
+
+#ml-status {
+    margin-top: 30px;
+    border: 2px solid black;
+    border-radius: 10px;
+    background-color: white;
+    padding: 16px 20px 20px;
+}
+
+.ml-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.ml-row:last-child {
+    margin-bottom: 0;
+}
+
+.ml-label {
+    font-weight: 600;
+    min-width: 120px;
+    font-size: 0.95rem;
+}
+
+.ml-value {
+    font-weight: bold;
+    font-size: 1rem;
+    min-width: 80px;
+}
+
+.severity-bar {
+    flex: 1;
+    height: 20px;
+    background-color: #e0e0e0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.severity-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 10px;
+    transition: width 0.3s ease, background-color 0.3s ease;
+    background-color: #2e9e5b;
+}
+
+#ml-status-text.anomaly {
+    color: #d6455b;
+    font-weight: bold;
+}
+
+#ml-status-text.normal {
+    color: #2e9e5b;
+    font-weight: bold;
+}
+
 @media (max-width: 720px) {
     .metrics {
         flex-direction: column;
     }
     #navleft li {
         font-size: large;
+    }
+    .ml-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+    .severity-bar {
+        width: 100%;
     }
 }
