@@ -55,10 +55,15 @@ def train_model(df):
 
 
 def train_if_available(path):
-    """Load the cleaned dataset and train, or return None if it does not exist."""
+    """Load the cleaned dataset and train, or return None if training is not possible.
+
+    Returns None both when the file is missing and when its contents are
+    unusable (missing columns), so callers answer 503 "not trained" instead
+    of crashing on a malformed dataset.
+    """
     try:
         df = load_dataset(path)
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError):
         return None
     model = train_model(df)
     print(f"Trained model on {len(df)} rows from {path}")
@@ -89,13 +94,19 @@ def predict(model, entry_id, created_at, temperature, humidity, air_quality):
         )
 
     # Safety-net: absolute maximum for physically dangerous values
-    if temperature > Config.ABSOLUTE_MAX_TEMP:
+    critical = temperature > Config.ABSOLUTE_MAX_TEMP
+    if critical:
         alerts.append(
             f"CRITICAL: Temperature {temperature}\u00b0C exceeds "
             f"absolute maximum ({Config.ABSOLUTE_MAX_TEMP}\u00b0C)"
         )
 
+    # Severity is a sigmoid of the model score (~1 anomaly, ~0 normal). A
+    # CRITICAL reading the forest scored as normal would otherwise report
+    # severity ~0, so dangerous values are pinned to maximum severity.
     severity = 1 / (1 + np.exp(Config.SEVERITY_STEEPNESS * raw_score))
+    if critical:
+        severity = 1.0
 
     return {
         "entry_id": entry_id,
