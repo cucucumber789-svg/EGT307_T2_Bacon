@@ -10,6 +10,8 @@
 
 ## Project Overview
 
+The Smart Environmental Monitoring System monitors environmental conditions such as temperature, humidity, CO₂, and air quality. Sensor data is collected and processed before being analysed by the Machine Learning Service to detect abnormal conditions. The system uses a microservices architecture with a dashboard for monitoring and a Notification Service that sends alerts through Telegram when abnormal readings are detected. This helps users identify potential environmental hazards quickly and respond when needed.
+
 ## Problem Statement
 
 Many environmental monitoring systems only display sensor readings without providing intelligent analysis or early detection of abnormal conditions. This requires users to manually monitor large amounts of data, which is time-consuming and may lead to delayed responses. 
