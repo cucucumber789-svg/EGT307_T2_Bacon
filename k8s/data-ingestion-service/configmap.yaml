@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: data-ingestion-service-config
 data:
-  BACKEND_API_URL: "http://backend-api:5000"
+  BACKEND_API_URL: "http://backend-api"
   ALLOWED_FORMATS: "csv,json"
   DATA_DIR: "/data"
   # TODO: Add batch size limits, timeout settings

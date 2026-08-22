@@ -5,11 +5,11 @@ metadata:
   labels:
     app: notification-service
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: notification-service
   ports:
     - port: 80
       targetPort: 5002
+      nodePort: 30002
       protocol: TCP
-  # TODO: Change to NodePort or LoadBalancer if external access needed

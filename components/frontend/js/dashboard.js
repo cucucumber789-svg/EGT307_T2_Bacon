@@ -16,8 +16,8 @@
 
 // Non-sensitive tuning values. Defaults only — overridden by GET /api/config on load.
 const CONFIG = {
-    API_BASE: "http://localhost:5000/api",           // where Backend API is running
-    NOTIFICATION_BASE: "http://localhost:5002/api",  // where Notification Service is running
+    API_BASE: "/api",           // proxied to Backend API via nginx
+    NOTIFICATION_BASE: "/api",  // proxied to Notification Service via nginx
     POLL_INTERVAL_MS: 8000,                          // how often to refresh the page, in milliseconds
     HISTORY_POINTS: 20,                              // how many past readings to plot on each chart
     ANOMALY_THRESHOLD: 0.8,                          // score above this colors a point red when predictions lack is_anomaly

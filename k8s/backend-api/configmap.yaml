@@ -4,5 +4,6 @@ metadata:
   name: backend-api-config
 data:
   DATABASE_URL: "postgresql://user:password@database:5432/env_monitor"
-  ML_SERVICE_URL: "http://ml-service:5001"
+  ML_SERVICE_URL: "http://ml-service"
+  NOTIFICATION_SERVICE_URL: "http://notification-service"
   # TODO: Add Spark configuration values as needed

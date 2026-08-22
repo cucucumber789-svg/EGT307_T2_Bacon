@@ -17,9 +17,19 @@ spec:
       containers:
         - name: backend-api
           image: backend-api:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000
           envFrom:
             - configMapRef:
                 name: backend-api-config
-          # TODO: Add resource limits, readiness/liveness probes
+          volumeMounts:
+            - name: config-yaml
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
+      volumes:
+        - name: config-yaml
+          configMap:
+            name: app-config
+      # TODO: Add resource limits, readiness/liveness probes

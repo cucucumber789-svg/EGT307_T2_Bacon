@@ -5,11 +5,11 @@ metadata:
   labels:
     app: frontend
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: frontend
   ports:
     - port: 80
       targetPort: 3000
+      nodePort: 30080
       protocol: TCP
-  # TODO: Change to NodePort or LoadBalancer if external access needed

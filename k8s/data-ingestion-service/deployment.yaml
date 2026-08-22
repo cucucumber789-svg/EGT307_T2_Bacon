@@ -19,6 +19,7 @@ spec:
           # Seeds the shared dataset PVC with the raw example file so the
           # ingestion service has data to clean via POST /api/ingest/file.
           image: dataset-seed:latest
+          imagePullPolicy: IfNotPresent
           command: ["sh", "-c", "[ -f /data/sensor_data.example.csv ] || cp /seed/sensor_data.example.csv /data/"]
           volumeMounts:
             - name: dataset
@@ -26,6 +27,7 @@ spec:
       containers:
         - name: data-ingestion-service
           image: data-ingestion-service:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5003
           envFrom:

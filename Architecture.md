@@ -150,7 +150,7 @@ EGT307_T2_Bacon/
 └── k8s/                          # KUBERNETES — deployment manifests
     ├── backend-api/
     │   ├── deployment.yaml
-    │   ├── service.yaml
+    │   ├── service.yaml            # NodePort 30000 → 5000
     │   └── configmap.yaml
     ├── ml-service/
     │   ├── deployment.yaml
@@ -158,17 +158,25 @@ EGT307_T2_Bacon/
     │   └── configmap.yaml
     ├── notification-service/
     │   ├── deployment.yaml
-    │   ├── service.yaml
-    │   ├── configmap.yaml          # thresholds (non-secret)
+    │   ├── service.yaml            # NodePort 30002 → 5002
+    │   ├── configmap.yaml
     │   └── secret.example.yaml     # Telegram credentials template (placeholder)
     ├── data-ingestion-service/
     │   ├── deployment.yaml
     │   ├── service.yaml
     │   └── configmap.yaml
-    ├── database/                  # shared dataset PersistentVolumeClaim
-    └── frontend/                  # FRONTEND — nginx container serving the dashboard
+    ├── database/
+    │   ├── pvc.yaml                # shared dataset PVC (sensor data)
+    │   ├── postgres-deployment.yaml
+    │   ├── postgres-service.yaml   # ClusterIP database:5432
+    │   ├── postgres-secret.yaml    # POSTGRES_USER/PASSWORD/DB (placeholder)
+    │   ├── postgres-pvc.yaml       # PostgreSQL data persistence
+    │   ├── postgres-configmap.yaml # init.sql (creates tables)
+    │   └── app-config-configmap.yaml # config.yaml shared across services
+    └── frontend/
         ├── deployment.yaml
-        └── service.yaml
+        ├── service.yaml            # NodePort 30080 → 80 → 3000
+        └── configmap.yaml          # nginx proxy targets
 ```
 
 ---
@@ -663,15 +671,19 @@ match the neighbouring service.
 
 ## Port Assignments
 
-| Service                | Port | Notes                                            |
-|------------------------|------|--------------------------------------------------|
-| Backend API            | 5000 | Flask default, central API layer                 |
-| ML Service             | 5001 | Anomaly detection (lazy-trained IsolationForest) |
-| Notification Service   | 5002 | Alert processing (Telegram)                      |
-| Data Ingestion Service | 5003 | CSV/JSON sensor data intake                      |
-| PostgreSQL             | 5432 | Database                                         |
-| Frontend               | 3000 | Dashboard UI (served statically)                 |
-| Sensor Simulator       | —    | No inbound port (outgoing requests only)         |
+| Service                | Container Port | k8s NodePort | Notes                                           |
+|------------------------|----------------|--------------|-------------------------------------------------|
+| Backend API            | 5000           | 30000        | Flask default, central API layer                |
+| ML Service             | 5001           | —            | Anomaly detection (lazy-trained IsolationForest)|
+| Notification Service   | 5002           | 30002        | Alert processing (Telegram)                     |
+| Data Ingestion Service | 5003           | —            | CSV/JSON sensor data intake                     |
+| PostgreSQL             | 5432           | —            | Database                                        |
+| Frontend               | 3000           | 30080        | Dashboard UI (served statically via nginx)      |
+| Sensor Simulator       | —              | —            | No inbound port (outgoing requests only)        |
+
+NodePort services (30000, 30002, 30080) are exposed for browser access in
+local clusters (minikube / Docker Desktop). Use `minikube service list` or
+`kubectl get svc` to confirm the assigned ports.
 
 ---
 
@@ -687,6 +699,13 @@ match the neighbouring service.
 - ConfigMaps for environment configuration
 - Services for internal DNS-based inter-service communication
 - Deployments with replica counts for scalability
+- **Startup ordering** — The ML Service trains on `sensor_data_cleaned.csv`,
+  which only exists after someone calls `POST /api/ingest/file` on the Data
+  Ingestion Service. The init container seeds the *raw* CSV into the shared
+  PVC, but cleaning happens on-demand. Until that step runs, the ML Service
+  returns 503 on prediction requests. The sensor simulator can start
+  immediately — it will trigger predictions that get 503'd until the model
+  is trained. This is by design (loose coupling), not an error
 
 ### Local Development (Standalone Mode)
 
