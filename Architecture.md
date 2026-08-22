@@ -361,6 +361,55 @@ This keeps routes organised by feature instead of having everything in one file.
   (in-memory model), so results are stored in the `predictions` table by the
   Backend API and served to the dashboard via `GET /api/predictions`
 
+### ML Model & Scoring
+
+- **Isolation Forest** — The system uses scikit-learn's Isolation Forest, an
+  unsupervised anomaly detection algorithm. The core idea: anomalies are
+  **few and different** from normal data points. The algorithm builds an
+  ensemble of random decision trees (`n_estimators = 200`). Each tree
+  recursively partitions the feature space by randomly selecting a feature
+  and a split value. Anomalous points are isolated in fewer splits (shorter
+  path length in the tree), while normal points require more splits to
+  separate. The shorter the average path across all trees, the more
+  anomalous the point
+
+- **Training** — The model is trained on three sensor features:
+  `temperature`, `humidity`, and `air_quality` from the cleaned dataset.
+  The `contamination` parameter (default `0.02`, from `config.yaml`) sets
+  the expected fraction of anomalies in the training data. It controls the
+  decision boundary — a higher contamination makes the model more sensitive
+  (flags more points as anomalous), while a lower value makes it more
+  conservative. With `contamination = 0.02`, the model expects roughly 2%
+  of training readings to be anomalous
+
+- **Anomaly score** — `model.decision_function()` returns a signed distance
+  to the decision boundary: **negative = anomaly, positive = normal**.
+  The magnitude indicates how far the point is from the boundary — a score
+  of `-0.15` is more anomalous than `-0.03`. Typical normal readings
+  score between `0.0` and `0.3`; mild anomalies fall between `0.0` and
+  `-0.05`; clear anomalies are below `-0.05`. The notification threshold
+  (`anomaly_score_threshold: 0.05` in `config.yaml`) means Telegram
+  alerts only fire when `score < -0.05`, filtering out the mild cases
+
+- **Severity** — The raw anomaly score is mapped to a 0–1 severity value
+  using a sigmoid function: `severity = 1 / (1 + exp(steepness * score))`.
+  With the default steepness of 10, this produces:
+  - Score `0.0` (boundary) → severity `0.50` (50% bar)
+  - Score `-0.05` (notification threshold) → severity `0.62` (62% bar)
+  - Score `-0.10` → severity `0.73`
+  - Score `-0.20` → severity `0.88`
+  - Score `-0.30` → severity `0.95`
+
+  The steepness parameter (configurable in `config.yaml`) controls how
+  sharply the bar transitions. Higher steepness means a sharper green-to-red
+  shift near the boundary
+
+- **Safety-net** — A hardcoded `ABSOLUTE_MAX_TEMP = 50°C` catches
+  physically dangerous values that may fall outside the training
+  distribution. If triggered, severity is pinned to `1.0` regardless of the
+  model score. The Isolation Forest should catch these, but this provides a
+  hard floor
+
 ### Notifications
 - **Backend triggers on ML anomalies** — The notification service is only
   called by the Backend API when the ML model flags a reading as anomalous
