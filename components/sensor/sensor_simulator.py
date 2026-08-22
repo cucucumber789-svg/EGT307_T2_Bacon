@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 
 import pandas as pd
 import requests
+import yaml
 
 # ======================================================
 # Configuration
@@ -26,6 +27,23 @@ import requests
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_DIR = os.path.join(SCRIPT_DIR, "..", "database")
+
+
+def _load_yaml():
+    for candidate in [
+        os.path.join(SCRIPT_DIR, "config.yaml"),
+        os.path.join(SCRIPT_DIR, "..", "..", "config.yaml"),
+        "config.yaml",
+    ]:
+        if os.path.isfile(candidate):
+            with open(candidate) as f:
+                return yaml.safe_load(f) or {}
+    return {}
+
+
+_yaml = _load_yaml()
+_sensor = _yaml.get("sensor_simulator", {})
+
 
 DATASET_PATH = os.environ.get(
     "DATASET_PATH",
@@ -38,11 +56,11 @@ DATA_INGESTION_URL = os.environ.get(
 )
 
 SEND_INTERVAL_SECONDS = float(
-    os.environ.get("SEND_INTERVAL_SECONDS", "3")
+    os.environ.get("SEND_INTERVAL_SECONDS", str(_sensor.get("send_interval_seconds", 3)))
 )
 
-# Anomaly injection rate: ~5% of readings will be synthetic anomalies
-ANOMALY_RATE = float(os.environ.get("ANOMALY_RATE", "0.05"))
+# Anomaly injection rate: synthetic anomalies injected into the stream
+ANOMALY_RATE = float(os.environ.get("ANOMALY_RATE", str(_sensor.get("anomaly_rate", 0.05))))
 
 # ======================================================
 # Column Names

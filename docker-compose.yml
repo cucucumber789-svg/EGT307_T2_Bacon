@@ -24,8 +24,9 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
       - ML_SERVICE_URL=http://ml-service:5001
       - NOTIFICATION_SERVICE_URL=http://notification-service:5002
-      - ANOMALY_SCORE_THRESHOLD=${ANOMALY_SCORE_THRESHOLD}
       - DATA_INGESTION_SERVICE_URL=http://data-ingestion-service:5003
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
     depends_on:
       env-validator:
         condition: service_healthy
@@ -79,6 +80,7 @@ services:
       - DATASET_PATH=/data/sensor_data_cleaned.csv
     volumes:
       - ./components/database:/data
+      - ./config.yaml:/app/config.yaml:ro
     depends_on:
       env-validator:
         condition: service_healthy
@@ -101,6 +103,7 @@ services:
       - SEND_INTERVAL_SECONDS=3
     volumes:
       - ./components/database:/data
+      - ./config.yaml:/app/config.yaml:ro
     depends_on:
       data-ingestion-service:
         condition: service_started

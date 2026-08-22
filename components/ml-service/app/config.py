@@ -1,25 +1,42 @@
 """
 Application configuration for ML Service.
 
+Secrets and deployment-specific values come from environment variables.
+Non-sensitive tuning values come from config.yaml at the repo root.
+
 Design:
 - The service trains on the CLEANED dataset produced by the data ingestion
   service (sensor_data_cleaned.csv), NOT raw data.
-- All values are loaded from environment variables with sensible local
-  defaults, so no secrets or machine-specific values live in code.
 - Alerting is driven by the IsolationForest model, not hardcoded thresholds.
   The only safety net is ABSOLUTE_MAX_TEMP for physically dangerous values.
 """
 
 import os
 
+import yaml
 from dotenv import load_dotenv
 
 load_dotenv()  # auto-load .env from repo root for standalone mode
 
 
+def _load_yaml():
+    here = os.path.dirname(os.path.abspath(__file__))
+    for candidate in [
+        os.path.join(here, "..", "config.yaml"),
+        os.path.join(here, "..", "..", "config.yaml"),
+        "config.yaml",
+    ]:
+        if os.path.isfile(candidate):
+            with open(candidate) as f:
+                return yaml.safe_load(f) or {}
+    return {}
+
+
+_yaml = _load_yaml()
+_ml = _yaml.get("ml_service", {})
+
+
 class Config:
-    # Dataset produced by the ingestion service. Relative default resolves
-    # to components/database/ when run from components/ml-service/.
     DATASET_PATH = os.environ.get(
         "DATASET_PATH",
         "../database/sensor_data_cleaned.csv",
@@ -29,14 +46,13 @@ class Config:
 
     FEATURES = ["temperature", "humidity", "air_quality"]
 
-    # IsolationForest hyperparameters
-    N_ESTIMATORS = int(os.environ.get("N_ESTIMATORS", "200"))
-    CONTAMINATION = float(os.environ.get("CONTAMINATION", "0.02"))
+    # IsolationForest hyperparameters (from config.yaml)
+    N_ESTIMATORS = int(_ml.get("n_estimators", 200))
+    CONTAMINATION = float(_ml.get("contamination", 0.02))
     RANDOM_STATE = int(os.environ.get("RANDOM_STATE", "42"))
 
-    # Safety-net threshold: absolute maximum for physically dangerous values.
-    # The IsolationForest should catch these, but this is a hard floor.
-    ABSOLUTE_MAX_TEMP = float(os.environ.get("ABSOLUTE_MAX_TEMP", "50.0"))
+    # Safety-net threshold (from config.yaml)
+    ABSOLUTE_MAX_TEMP = float(_ml.get("absolute_max_temp", 50.0))
 
-    # How sharply severity rises from 0 to 1 near the decision boundary
-    SEVERITY_STEEPNESS = float(os.environ.get("SEVERITY_STEEPNESS", "10.0"))
+    # Severity sigmoid steepness (from config.yaml)
+    SEVERITY_STEEPNESS = float(_ml.get("severity_steepness", 10.0))

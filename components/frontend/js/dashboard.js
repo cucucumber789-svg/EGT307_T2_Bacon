@@ -14,6 +14,7 @@
  * from here would re-send Telegram messages on every poll).
  */
 
+// Non-sensitive tuning values. Source of truth: config.yaml at repo root.
 const CONFIG = {
     API_BASE: "http://localhost:5000/api",           // where Backend API is running
     NOTIFICATION_BASE: "http://localhost:5002/api",  // where Notification Service is running

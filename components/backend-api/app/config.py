@@ -1,27 +1,45 @@
 """Backend API configuration.
 
-All values come from environment variables (docker-compose / k8s) with
-localhost defaults so the service also runs standalone during development.
+Secrets (DATABASE_URL, etc.) come from environment variables (.env).
+Non-sensitive tuning values come from config.yaml at the repo root.
 """
 
 import os
 
+import yaml
 from dotenv import load_dotenv
 
 load_dotenv()  # auto-load .env from repo root for standalone mode
 
 
+def _load_yaml():
+    """Load config.yaml — in Docker it's mounted at /app/config.yaml,
+    standalone we search upward to the repo root."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    for candidate in [
+        os.path.join(here, "..", "config.yaml"),      # Docker: /app/config.yaml
+        os.path.join(here, "..", "..", "config.yaml"), # Standalone: repo root
+        "config.yaml",                                  # Running from repo root
+    ]:
+        if os.path.isfile(candidate):
+            with open(candidate) as f:
+                return yaml.safe_load(f) or {}
+    return {}
+
+
+_yaml = _load_yaml()
+
+
 class Config:
-    # Postgres connection string used by SQLAlchemy.
+    # --- Secrets (from .env) ---
     DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://user:password@localhost:5432/env_monitor")
-    # Base URL of the ML microservice that produces anomaly predictions.
     ML_SERVICE_URL = os.environ.get("ML_SERVICE_URL", "http://localhost:5001")
-    # Base URL of the Notification microservice used to send anomaly alerts.
     NOTIFICATION_SERVICE_URL = os.environ.get("NOTIFICATION_SERVICE_URL", "http://localhost:5002")
 
+    # --- Non-sensitive (from config.yaml) ---
     # Maximum absolute anomaly_score for an anomaly to trigger a Telegram
     # notification.  The IsolationForest score is negative for anomalies;
     # we compare against the negative threshold so only genuinely anomalous
     # readings notify — mild anomalies are stored but do not alert,
     # reducing alert fatigue.
-    ANOMALY_SCORE_THRESHOLD = float(os.environ["ANOMALY_SCORE_THRESHOLD"])
+    ANOMALY_SCORE_THRESHOLD = float(_yaml.get("anomaly_score_threshold", 0.05))
