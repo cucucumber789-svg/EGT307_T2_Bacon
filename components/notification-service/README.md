@@ -1,4 +1,4 @@
-# Notification Service
+# Notification service
 
 Sends Telegram alerts when the system detects abnormal environmental
 conditions, and keeps the most recent alerts in memory for the dashboard.
@@ -30,7 +30,7 @@ Notification Service
 
 There are two supported paths. Pick the one that matches your situation.
 
-### Path A — First-time setup (create your own bot)
+### Path A — first-time setup (create your own bot)
 
 For a new user running the app on their own: follow **Telegram setup →
 First-time** below to create a bot, get a chat id, and put both into the
@@ -38,7 +38,7 @@ configuration. This is the default experience — until `TELEGRAM_BOT_TOKEN`
 and `TELEGRAM_CHAT_ID` are set, the service starts with a notice that
 Telegram is not configured and skips sends.
 
-### Path B — Join a team that already has a bot (recommended for groups)
+### Path B — join a team that already has a bot (recommended for groups)
 
 If a teammate already runs the notification service with a bot, you don't
 create anything:

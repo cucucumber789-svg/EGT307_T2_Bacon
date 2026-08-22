@@ -92,8 +92,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - API_BASE_URL=http://backend-api:5000/
-      - NOTIFICATION_BASE_URL=http://notification-service:5002/
+      - API_BASE_URL=http://backend-api:5000/api/
+      - NOTIFICATION_BASE_URL=http://notification-service:5002/api/
     depends_on:
       env-validator:
         condition: service_healthy

@@ -299,7 +299,9 @@ async function refresh() {
         return;
     }
     try {
-        const alerts = await fetchJSON(CONFIG.NOTIFICATION_BASE + "/alerts");
+        const res = await fetch(CONFIG.NOTIFICATION_BASE + "/alerts");
+        if (!res.ok) throw new Error("alerts -> " + res.status);
+        const alerts = await res.json();
         if (alerts.length > 0) {
             setAlert("alert", alerts[0].message, alerts[0].created_at.slice(11, 16) + " " + alerts[0].created_at.slice(0, 10));
         } else {

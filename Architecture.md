@@ -9,7 +9,7 @@ by **Docker** and **Kubernetes**.
 
 ---
 
-## System Architecture (High-Level)
+## System architecture (high-level)
 
 ```
 ┌─────────────────────┐   ┌─────────────────────┐
@@ -41,12 +41,12 @@ All components are containerised with Docker and deployed via Kubernetes.
 
 ---
 
-## Repository File Structure
+## Repository file structure
 
 ```
 EGT307_T2_Bacon/
 ├── docker-compose.yml             # Local multi-service development
-├── config.yaml                    # Centralized non-sensitive config (thresholds, tuning)
+├── config.yaml                    # Centralised non-sensitive config (thresholds, tuning)
 ├── .env.example                   # Template for secrets (committed); .env is gitignored
 ├── EGT307 PRESENTATION.pptx       # Project presentation
 ├── EGT307_Contribution.docx       # Individual contribution breakdown
@@ -181,7 +181,7 @@ EGT307_T2_Bacon/
 
 ---
 
-## File Structure Guide
+## File structure guide
 
 This section explains what each file does and how they connect, for developers
 new to this project.
@@ -204,7 +204,7 @@ from app.models.sensor import SensorReading
 The file can be **empty** (just acts as a marker) or used to expose commonly
 imported items for convenience.
 
-### How the Files Connect
+### How the files connect
 
 All services live under `components/`. The Backend API is the largest
 service and still uses the full `app/` split:
@@ -235,14 +235,14 @@ cleaned dataset is available (or starts idle otherwise), and
 `routers/prediction.py` serves the prediction endpoints, retrying training
 lazily on the first request if data appeared after startup.
 
-### File-by-File Explanation
+### File-by-file explanation
 
 Paths below are relative to the repo root unless marked `(relative to service)`,
 in which case they are relative to the service folder inside `components/`.
 
 | File                                                                  | Purpose |
 |-----------------------------------------------------------------------|---------|
-| `config.yaml`                                                         | Centralized non-sensitive configuration — thresholds, ML hyperparameters, simulator tuning. Committed to git. Services read it at startup via `_load_yaml()`; the Backend API also serves it to the frontend via `GET /api/config`. |
+| `config.yaml`                                                         | Centralised non-sensitive configuration — thresholds, ML hyperparameters, simulator tuning. Committed to git. Services read it at startup via `_load_yaml()`; the Backend API also serves it to the frontend via `GET /api/config`. |
 | `.env.example`                                                        | Template for secrets (Telegram token, database credentials). Committed; `.env` is gitignored. |
 | `docker-compose.yml`                                                  | Defines all services (backend, ML, notification, ingestion, database, frontend, sensor simulator) and how they run together locally. Mounts `config.yaml` as a read-only volume into backend-api, ml-service, and sensor-simulator. One command starts everything. |
 | `scripts/validate-env.sh`                                             | Shell script for validating `.env`. Used by the `env-validator` Docker container to block startup until all secrets are set. |
@@ -285,7 +285,7 @@ in which case they are relative to the service folder inside `components/`.
 | `components/database/validation_data.example.csv`                  | Test dataset with entry_ids starting at 78033, used by the Sensor Simulator to stream new readings. |
 | `components/frontend/html/dashboard.html`                          | Dashboard page markup. |
 | `components/frontend/css/styles.css`                               | Dashboard styling. |
-| `components/frontend/js/dashboard.js`                              | Dashboard logic. Fetches non-sensitive config from `GET /api/config` on load to stay in sync with `config.yaml`. Polls the Backend API for sensor readings and predictions (coloring anomalous points red) and the Notification Service's `GET /api/alerts` for the alert panel. Renders charts with Chart.js. Displays the ML Analysis panel: severity bar with threshold markers (model boundary at 50%, notification trigger at ~62%), anomaly score with buffer-to-alert indicator, and reference rows for notification threshold and model contamination. |
+| `components/frontend/js/dashboard.js`                              | Dashboard logic. Fetches non-sensitive config from `GET /api/config` on load to stay in sync with `config.yaml`. Polls the Backend API for sensor readings and predictions (colouring anomalous points red) and the Notification Service's `GET /api/alerts` for the alert panel. Renders charts with Chart.js. Displays the ML Analysis panel: severity bar with threshold markers (model boundary at 50%, notification trigger at ~62%), anomaly score with buffer-to-alert indicator, and reference rows for notification threshold and model contamination. |
 | `components/frontend/Dockerfile`                                   | Container definition for the dashboard: nginx serving the static files on port 3000. |
 | `components/frontend/nginx.conf`                                   | nginx server config: listens on 3000, serves `html/`, `css/`, `js/`, and falls back to `dashboard.html`. |
 | `components/sensor/sensor_simulator.py`                            | Simulates an IoT sensor by replaying `validation_data.example.csv` row by row and posting each reading to the Data Ingestion Service via REST. Reads send interval and anomaly rate from `config.yaml`. Applies random jitter to values for diversity and injects ~5% synthetic anomalies (extreme readings) to trigger ML alerts for demo purposes. Loops forever to simulate a continuous sensor stream. |
@@ -293,7 +293,7 @@ in which case they are relative to the service folder inside `components/`.
 | `components/sensor/requirements.txt`                               | Python dependencies for the Sensor Simulator (pandas, requests). |
 | `k8s/*.yaml`                                                          | Kubernetes deployment manifests. Define how each microservice is deployed, exposed, and configured in a cluster. `k8s/database/pvc.yaml` declares the shared dataset volume both ingestion and ML mount. |
 
-### Key Concept: Blueprints
+### Key concept: blueprints
 
 Blueprints are the routing system used in `routers/`. Each file inside
 `routers/` defines a Flask **Blueprint** — a group of related API endpoints.
@@ -321,13 +321,13 @@ This keeps routes organised by feature instead of having everything in one file.
 
 ---
 
-## Technology Decisions
+## Technology decisions
 
 | Component        | Technology             | Justification                                                     |
 |------------------|------------------------|-------------------------------------------------------------------|
 | Backend API      | Flask + PySpark        | Flask for lightweight HTTP; PySpark for large-scale               |
 |                  |                        | sensor data processing (Spark session TBD).                       |
-| Config           | PyYAML + config.yaml   | Centralized non-sensitive config (thresholds, tuning) read by     |
+| Config           | PyYAML + config.yaml   | Centralised non-sensitive config (thresholds, tuning) read by     |
 |                  |                        | services at startup; served to frontend via `GET /api/config`.    |
 | Database         | PostgreSQL             | Strong relational support for structured sensor data;             |
 |                  |                        | ACID compliance; mature tooling.                                  |
@@ -345,9 +345,9 @@ This keeps routes organised by feature instead of having everything in one file.
 
 ---
 
-## Key Development Decisions
+## Key development decisions
 
-### Data Pipeline
+### Data pipeline
 - **Raw data as `.example.csv`** — Committed file is ground truth; cleaned output is
   git-ignored since it evolves with the cleaning process
 - **Cleaning logic kept simple** — Wrapped in functions but kept minimal to avoid
@@ -369,7 +369,7 @@ This keeps routes organised by feature instead of having everything in one file.
   (in-memory model), so results are stored in the `predictions` table by the
   Backend API and served to the dashboard via `GET /api/predictions`
 
-### ML Model & Scoring
+### ML model & scoring
 
 - **Isolation Forest** — The system uses scikit-learn's Isolation Forest, an
   unsupervised anomaly detection algorithm. The core idea: anomalies are
@@ -463,7 +463,7 @@ This keeps routes organised by feature instead of having everything in one file.
 - **SQLAlchemy ORM** — Decouples app logic from raw SQL; models serve as single
   source of truth for table schema
 
-### Local Development vs Docker
+### Local development vs Docker
 The `components/database/` folder is the single source of data for both
 environments. Docker's volume mount (`./components/database:/data`) maps
 the host folder to the container, so both environments read and write to the
@@ -478,7 +478,7 @@ same files.
 This means cleaned output appears in `components/database/` regardless of
 how you run the service. No duplication, no sync issues.
 
-### Docker & Deployment
+### Docker & deployment
 - **`depends_on` for startup order** — Database → Backend API → Ingestion
   service ensures services connect in the right sequence
 - **Shared dataset volume** — `./components/database` is bind-mounted as
@@ -496,13 +496,13 @@ how you run the service. No duplication, no sync issues.
 
 ---
 
-## Development Style & Conventions
+## Development style & conventions
 
 How new code in this project should look, structured, and committed. These
 conventions come from the patterns already in the codebase; when in doubt,
 match the neighbouring service.
 
-### Service Structure
+### Service structure
 - **Backend-style services** (backend-api, ml-service, data-ingestion) use the
   `app/` split: `main.py` (a `create_app()` factory), `config.py`,
   `routers/` (Flask blueprints), `services/` (business logic and HTTP
@@ -513,19 +513,19 @@ match the neighbouring service.
 - **Blueprints** are named `name_bp = Blueprint("name", __name__)` and
   registered in `main.py` with `url_prefix="/api"`.
 
-### Python Code Style
+### Python code style
 - 4-space indentation, `snake_case` names, `"""docstrings"""` for modules and
   public functions.
 - One idea per function; keep functions small and single-purpose. Prefer plain
   functions over classes for service logic unless state is genuinely needed.
 
-### Configuration & Secrets
+### Configuration & secrets
 - **Two-tier configuration** — Secrets (bot tokens, database credentials) live
   in `.env` (gitignored) or a k8s `Secret`. Non-sensitive tuning values
   (thresholds, ML hyperparameters, simulator intervals) live in `config.yaml`
   at the repo root (committed). This keeps secrets out of version control
   while making tuning values visible and reviewable.
-- **`config.yaml`** — Centralized config read by backend-api, ml-service, and
+- **`config.yaml`** — Centralised config read by backend-api, ml-service, and
   sensor-simulator at startup via a `_load_yaml()` helper. Each service
   searches a few candidate paths (Docker mount, standalone relative path,
   current directory) so the same code works in both environments. In Docker,
@@ -553,13 +553,13 @@ match the neighbouring service.
 - Never commit credentials, keys, or generated artifacts (the cleaned dataset
   is git-ignored for this reason).
 
-### Service Entry Points
+### Service entry points
 - Flask services expose `create_app()` and start via
   `if __name__ == "__main__": app.run(host="0.0.0.0", port=NNNN)`.
 - Browser-facing services enable CORS with an `@app.after_request` handler.
 - Ports are fixed per service; see the Port Assignments table.
 
-### API Responses & Error Handling
+### API responses & error handling
 - JSON in, JSON out. Responses use `jsonify(...)`.
 - Errors use `jsonify({"error": "..."})` with the appropriate status code:
   `400` for validation, `503` when a dependency is not ready (e.g. ML model
@@ -572,7 +572,7 @@ match the neighbouring service.
   `HTTPError` through when the upstream error is useful to the caller (e.g.
   the ML 503).
 
-### Frontend (Vanilla JS) & CSS
+### Frontend (vanilla JS) & CSS
 - Plain JavaScript with **Chart.js** for charts — no framework, no build
   step, no bundler. Files live under `html/`, `css/`, and `js/`.
 - A `CONFIG` object at the top of the script holds every tunable (base URLs,
@@ -599,12 +599,13 @@ match the neighbouring service.
   query for narrow screens; state styling via `[data-state=...]` selectors.
 - **Served by nginx** — `components/frontend/Dockerfile` + `nginx.conf` serve
   the static files on port 3000. Compose wires it in as the `frontend`
-  service; `k8s/frontend/` holds the deployment and ClusterIP service. The
-  browser reaches the Backend API and Notification Service directly, so the
+  service; `k8s/frontend/` holds the deployment and the NodePort service
+  (30080). The nginx container proxies `/api/*` to the Backend API and
+  Notification Service, so the browser only talks to one origin. The
   frontend has no `depends_on` (it is not a microservice, just a static-file
-  server).
+  server with a proxy).
 
-### Git Commits
+### Git commits
 - Summary line: lowercase, imperative ("add", "fix", "refactor", "document",
   "wire").
 - A short body describing what changed and why, ending with a `Why:`
@@ -615,27 +616,27 @@ match the neighbouring service.
   decisions, per-service READMEs) in the same commit or an accompanying docs
   commit.
 
-### Standalone Scripts & Verification
+### Standalone scripts & verification
 - Build services as **importable modules first, standalone scripts second**:
   `if __name__ == "__main__"` blocks call the same functions the routes use.
 - There is no committed test framework. Verify by running services
   standalone, exercising endpoints with the Flask test client / `curl`, and
   running import checks.
 
-### Deployment Hygiene
+### Deployment hygiene
 - One Dockerfile per service; `docker-compose.yml` at the repo root; one
   `k8s/` manifest folder per service.
 - Environment: `.env` (local), ConfigMap (non-secret), Secret (credentials).
 - Keep generated data and build outputs out of the repository.
 
-### Database Schema Changes
+### Database schema changes
 - There is no migrations framework. To change a table, update the SQLAlchemy
   model (`app/models/`) **and** `components/database/init.sql` together.
 - `Base.metadata.create_all` only creates missing tables — it does **not**
   alter existing ones. For a development database, recreate it or apply the
   change manually.
 
-### Adding a New Microservice
+### Adding a new microservice
 1. Create `components/<name>/` with the `app/` split (or a single-file app
    for small services) plus a `requirements.txt`.
 2. Add a `Dockerfile`: `python:3.11-slim`, `WORKDIR /app`, install
@@ -653,7 +654,7 @@ match the neighbouring service.
 
 ---
 
-## Microservice Communication
+## Microservice communication
 
 | From             | To                   | Protocol  | Purpose                                                            |
 |------------------|----------------------|-----------|--------------------------------------------------------------------|
@@ -669,7 +670,7 @@ match the neighbouring service.
 
 ---
 
-## Port Assignments
+## Port assignments
 
 | Service                | Container Port | k8s NodePort | Notes                                           |
 |------------------------|----------------|--------------|-------------------------------------------------|
@@ -687,7 +688,7 @@ local clusters (minikube / Docker Desktop). Use `minikube service list` or
 
 ---
 
-## Docker & Kubernetes Strategy
+## Docker & Kubernetes strategy
 
 ### Docker
 - Each microservice has its own `Dockerfile`
@@ -707,7 +708,7 @@ local clusters (minikube / Docker Desktop). Use `minikube service list` or
   immediately — it will trigger predictions that get 503'd until the model
   is trained. This is by design (loose coupling), not an error
 
-### Local Development (Standalone Mode)
+### Local development (standalone mode)
 
 Services can be run individually for development and testing without
 starting the full Docker Compose stack. Each service module includes an
@@ -744,7 +745,7 @@ consistent.
 
 ---
 
-## Data Flow Workflows
+## Data flow workflows
 
 These end-to-end scenarios show how the microservices collaborate to deliver
 product value. Each workflow traces a user-visible event through the system.
@@ -837,7 +838,7 @@ or rebuilding containers — just edit `config.yaml` and restart affected servic
 
 ---
 
-## Open Decisions (Pending Team Discussion)
+## Open decisions (pending team discussion)
 
 The following items have **not yet been finalised** and are subject to change:
 
@@ -848,7 +849,6 @@ The following items have **not yet been finalised** and are subject to change:
 2. **Sensor Data Input Format** — The primary flow is now the Sensor
    Simulator replaying the CSV dataset as JSON API payloads. CSV uploads and
    IoT streaming remain possible future inputs.
-   I chose wk2 dataset because it shows the exact same inferential conclusion as wk 3 dataset and it is not as heavily loaded compared to wk 3 dataset.
 
 3. **Live Sensor → Ingestion link** — The sensor simulator posts to
    `/api/ingest/reading`, which is now implemented in the Data Ingestion

@@ -1,76 +1,85 @@
 # EGT307_T2_BACON
 
-## Task Assignment
+## Task assignment
 
 | Name     | Task                                                                                                                                        | Microservice                           |
 |----------|---------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------|
 | Wei Guan | Notification Service, Frontend Dashboard, Sensor Simulator, Presentation, Data Sources                                                      | sensor simulator, notification-service |
-| Shun Wei | Backend API, System Integration, Docker & Kubernetes, System Architecture, Code Quality & Documentation, Centralized Config, ML Integration | backend-api                            |
+| Shun Wei | Backend API, System Integration, Docker & Kubernetes, System Architecture, Code Quality & Documentation, Centralised Config, ML Integration | backend-api                            |
 | Derek    | Data Ingestion Service, Database Setup, Machine Learning Service                                                                            | data-ingestion, ml-service             |
 
-## Project Overview
+## Project overview
 
-The Smart Environmental Monitoring System monitors environmental conditions such as temperature, humidity, CO₂, and air quality. Sensor data is collected and processed before being analysed by the Machine Learning Service to detect abnormal conditions. The system uses a microservices architecture with a dashboard for monitoring and a Notification Service that sends alerts through Telegram when abnormal readings are detected. This helps users identify potential environmental hazards quickly and respond when needed.
+The Smart Environmental Monitoring System monitors environmental conditions
+such as temperature, humidity, and air quality. Sensor data is collected and processed before being analysed by the Machine Learning Service to detect abnormal conditions. The system uses a microservices architecture with a dashboard for monitoring and a Notification Service that sends alerts through Telegram when abnormal readings are detected. This helps users identify potential environmental hazards quickly and respond when needed.
 
-## Problem Statement
+## Problem statement
 
 Many environmental monitoring systems only display sensor readings without providing intelligent analysis or early detection of abnormal conditions. This requires users to manually monitor large amounts of data, which is time-consuming and may lead to delayed responses. 
 
 ## Relevance of the problem towards the real world
 
-In a nuclear plant, catching a sudden change in air quality is a race against an invisible hazard. Expecting a human operator to stare at screens and catch a tiny spike in gas levels or airborne particles among thousands of data points just isn't realistic—people get tired and miss things. By letting AI scan the data in the background, the plant can predict emergencies instead of just reacting to them. Smart environmental sensors sniff out tiny leaks and spot weird patterns, giving the safety team an early-warning notification hours before a real disaster hits.
+In facilities such as chemical or nuclear plants, a change in air quality can
+be an early sign of a hazard, and operators cannot reliably watch thousands
+of readings at once. Automated analysis addresses this: sensor data is
+checked continuously in the background, abnormal patterns raise an alert,
+and the safety team is notified without waiting for someone to notice a
+reading on a screen.
 
 ## Objectives
 
 1. Automated Analysis: Use machine learning to interpret sensor data instead of relying solely on raw readings
 2. Early Detection: Identify abnormal environmental conditions (e.g., pollution spikes, temperature anomalies) before they escalate.
 
-## Intended Benefits
+## Intended benefits
 
 1. Reduced Manual Monitoring: AI automatically monitors environmental data, reducing the need for constant human supervision.
 2. Early Hazard Detection: Provides timely alerts to help prevent or minimise environmental risks.
 3. Improved Accuracy: AI detects abnormal patterns that may be missed during manual monitoring.
 4. Scalable and Easy to Maintain: The microservices architecture allows each service to be updated, maintained, and scaled independently.
 
-## Data Source
+## Data source
 
-Data is collected through sensors that is placed in a controlled environment. The controlled environment is meant to simulate work conditions in a dangerous environment such has a chemical or nuclear powerplants. The following features of the data are Temperature, Humidity and Air Quality.
+Data is collected through sensors placed in a controlled environment that
+simulates working conditions in a dangerous facility such as a chemical or
+nuclear power plant. The data features are temperature, humidity, and air
+quality.
 
-## System Architecture
+## System architecture
 
 The Smart Environmental Monitoring System uses a microservices architecture to provide a flexible and reliable solution for monitoring environmental conditions. The system consists of six services: the Data Ingestion Service, which collects sensor data; the Machine Learning Service, which analyses the data and detects abnormal conditions; the Notification Service, which sends Telegram alerts when abnormal readings are detected; the Backend API, which manages communication between services; the Database, which stores sensor data and prediction results; and the Frontend Dashboard, where users can view live data, AI predictions, and notifications.
 
 Using a microservices architecture improves modularity by giving each service a specific responsibility, making it easier to develop and maintain. It also improves scalability, as each service can be deployed or scaled independently based on demand. Since the services operate separately, the system is also more fault tolerant, as a failure in one service is less likely to affect the others, allowing the rest of the application to continue running.
 
-### Sensor Architecture
+### Sensor architecture
 
 The Sensor Architecture is responsible for simulating IoT sensors by continuously reading environmental data from the CSV dataset. Instead of collecting live sensor readings, it loops through the existing dataset and sends one record at a time to the Data Ingestion Service through REST API requests. This simulates a real-time data stream, allowing the rest of the system to process, analyse, and display sensor data as if it were coming from actual IoT devices. This approach provides a simple and reliable way to test the system without requiring physical hardware.
 
-### Data Ingestion
+### Data ingestion
 
-The Data Ingestion Service is responsible for transferring environmental sensor data to the system for processing. It receives real-time readings such as temperature, humidity, CO2 concentration, and air quality from IoT sensors through REST APIs. The service validates and formats the incoming data before storing it in the database and forwarding it to the Machine Learning Service for analysis. By separating data collection into its own microservice, the system achieves better scalability, reliability, and maintainability, allowing new sensors or data sources to be integrated with minimal changes to the overall application.
+The Data Ingestion Service is responsible for transferring environmental sensor data to the system for processing. It receives real-time readings such as temperature, humidity, and air quality from IoT sensors through REST APIs. The service validates and formats the incoming data before storing it in the database and forwarding it to the Machine Learning Service for analysis.
 
-### Database Service
+### Database service
 
-The Database Service stores the imported environmental monitoring dataset, anomaly prediction results, and historical records. The Backend API retrieves data from the database for preprocessing and machine learning analysis, while prediction results are stored for future reference and visualisation. This provides persistent and centralized data storage, enabling efficient data management and historical analysis.
+The Database Service stores the imported environmental monitoring dataset, anomaly prediction results, and historical records. The Backend API retrieves data from the database for preprocessing and machine learning analysis, while prediction results are stored for future reference and visualisation. This provides persistent and centralised data storage, enabling efficient data management and historical analysis.
 
-### Backend API Service
+### Backend API service
 
 The Backend API Service acts as the communication layer between all microservices. It receives requests from the Frontend Dashboard, retrieves sensor data from the database, sends data to the Machine Learning Service for prediction, stores the prediction results, and returns the processed information to the user.
 
-### Machine Learning Service
+### Machine learning service
 
 The Machine Learning Service receives validated sensor data from the Backend API, analyses it using the trained model, and returns prediction results. If an abnormal condition is detected, the Backend API stores the result in the database and triggers the Notification Service to send a Telegram alert.
 
-### Notification Service
+### Notification service
 
-The Notification Service is used to send alerts when the system detects abnormal environmental conditions. After the AI model analyses the sensor data, the service checks whether any readings, such as temperature, humidity, CO2, or air quality, exceed the predefined threshold. If an abnormal condition is detected, an alert is automatically sent to a Telegram bot using the Telegram Bot API. This allows users to receive notifications instantly on their phones and take action as soon as possible. Separating the notification feature into its own microservice also makes it easier to maintain, update, and scale without affecting the other services in the system.
+The Notification Service is used to send alerts when the system detects abnormal environmental conditions. It does not make alerting decisions: when the ML model flags a reading and its anomaly score crosses the configured threshold, the Backend API calls this service, which forwards the alert message to a Telegram bot using the Telegram Bot API and keeps it for the dashboard. This allows users to receive notifications on their phones and take action as soon as possible. Separating the notification feature into its own microservice makes it easier to maintain and update without affecting the other services in the system.
 
-### Frontend Dashboard
+### Frontend dashboard
 
 The Frontend Dashboard provides a user-friendly interface for monitoring environmental conditions. It displays sensor data, anomaly detection results, and historical trends by sending REST API requests to the Backend API. Users can easily view environmental status and receive alerts without directly interacting with the database.
 
-## Setup & Running
+## Setup & running
 
 ### Prerequisites
 
@@ -81,7 +90,7 @@ The Frontend Dashboard provides a user-friendly interface for monitoring environ
 
 No Node.js is required — the frontend is plain static files served by nginx.
 
-### Option A — Full stack with Docker Compose
+### Option A — full stack with Docker Compose
 
 Create a `.env` file in the repo root (git-ignored) before starting. The
 `env-validator` service runs automatically and blocks startup until all
@@ -179,7 +188,7 @@ kubectl apply -f k8s/backend-api -f k8s/ml-service -f k8s/notification-service \
               -f k8s/data-ingestion-service -f k8s/frontend
 ```
 
-### Option C — Run each service standalone (no Docker)
+### Option C — run each service standalone (no Docker)
 
 Each service installs and runs on its own, so you can develop and test one
 piece without the full stack.
@@ -239,7 +248,7 @@ localhost defaults:
 | `NOTIFICATION_SERVICE_URL` | `http://localhost:5002` |
 | `DATA_INGESTION_SERVICE_URL` | `http://localhost:5003` |
 
-#### 3. Notification Service
+#### 3. Notification service
 
 ```bash
 cd components/notification-service
@@ -291,7 +300,7 @@ A Telegram message should arrive. Verify with:
 Invoke-RestMethod -Uri http://localhost:5002/api/alerts
 ```
 
-#### 4. Data Ingestion Service
+#### 4. Data ingestion service
 
 Server mode (listens on port 5003):
 
@@ -320,7 +329,7 @@ cd components/data-ingestion-service
 python -m app.services.data_ingestion
 ```
 
-#### 5. ML Service
+#### 5. ML service
 
 ```bash
 cd components/ml-service
@@ -348,7 +357,7 @@ python -m app.services.model_service
 | Notification threshold | Telegram only fires when `anomaly_score < -threshold` (default 0.05). Mild anomalies are stored but do not notify. | `config.yaml` → `anomaly_score_threshold` |
 | Safety net | Hardcoded `ABSOLUTE_MAX_TEMP = 50°C` — physically dangerous values get pinned to severity 1.0 regardless of model score. | `config.yaml` → `ml_service.absolute_max_temp` |
 
-#### 6. Sensor Simulator
+#### 6. Sensor simulator
 
 ```bash
 cd components/sensor
@@ -369,7 +378,7 @@ read from `config.yaml`.
 | `DATA_INGESTION_URL` | `http://data-ingestion-service:5003/api/ingest/reading` | A Docker-internal DNS name. For local runs set `http://localhost:5003/api/ingest/reading`. |
 | `SEND_INTERVAL_SECONDS` | `3` | How long to wait between readings. |
 
-#### 7. Frontend Dashboard
+#### 7. Frontend dashboard
 
 ```bash
 cd components/frontend
@@ -413,20 +422,12 @@ Then register data as in Option A and open the dashboard.
 
 Each service folder has its own README with configuration, run modes, and
 troubleshooting:
-[`components/notification-service/README.md`](../components/notification-service/README.md),
-[`components/frontend/README.md`](../components/frontend/README.md), and the
+[`components/notification-service/README.md`](./components/notification-service/README.md),
+[`components/frontend/README.md`](./components/frontend/README.md), and the
 system-level design notes in
 [`Architecture.md`](./Architecture.md).
 
-## Docker Containerization
-
-Each application component is packaged as a Docker container to provide a lightweight, portable, and consistent runtime environment across development, testing, and production. Docker eliminates dependency conflicts and ensures that the application behaves consistently regardless of the deployment platform.
-
-## Kubernates Deployment
-
-The containers are orchestrated using Kubernetes, which automates deployment, scaling, load balancing, and recovery of application services. Kubernetes continuously monitors the desired state of the system and automatically replaces failed Pods, ensuring high availability and fault tolerance. The orchestration platform also enables the application to scale horizontally by creating additional Pods when system workload increases.
-
-## Issues and Limitations
+## Issues and limitations
 
 - Limited Dataset and Simulation: The system uses a limited, static CSV dataset to simulate IoT sensors, so it may not fully represent real-world sensor behaviour or how the ML model performs on new data.
 

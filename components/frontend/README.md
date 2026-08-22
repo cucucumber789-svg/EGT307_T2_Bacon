@@ -1,30 +1,40 @@
-# Frontend Dashboard
+# Frontend dashboard
 
 Static dashboard (HTML/CSS/JS + Chart.js) for the Environmental Monitoring
-Station. It shows live sensor readings, colors anomalous points red, and
+Station. It shows live sensor readings, marks anomalous points red, and
 displays the most recent alert from the Notification Service.
 
 ## How it fits in
 
 - The page is **static** — no build step, no bundler. Files live under
   `html/`, `css/`, and `js/`.
-- The browser talks **directly** to the Backend API (`GET /api/sensors`,
-  `GET /api/predictions`) and the Notification Service (`GET /api/alerts`).
-  The frontend is not a microservice: it never talks to the database or the
+- The page fetches readings and predictions from the Backend API
+  (`GET /api/sensors`, `GET /api/predictions`) and alerts from the
+  Notification Service (`GET /api/alerts`). In Docker and Kubernetes both
+  base URLs default to the relative `/api`, so the browser sends every
+  request to nginx, which proxies `/api/*` to the two services
+  (`nginx.conf`). To serve the folder without nginx, set `API_BASE` and
+  `NOTIFICATION_BASE` in `js/dashboard.js` to absolute URLs such as
+  `http://localhost:5000/api`.
+- The frontend is not a microservice: it never talks to the database or the
   other services.
 - Alerts are created by the Backend API when the ML model flags an anomaly;
   the dashboard only reads them. It never POSTs `/api/notify` itself, so a
   page refresh cannot re-send Telegram messages.
 
 ```
-                    ┌──────────────┐
-                    │    Browser   │
-                    └──────┬───────┘
-             ┌─────────────┼─────────────┐
-             ▼                            ▼
-   Backend API (5000)          Notification Service (5002)
-   GET /api/sensors            GET /api/alerts
-   GET /api/predictions
+                       ┌──────────────┐
+                       │    Browser   │
+                       └──────┬───────┘
+                              │  GET /api/* (same origin)
+                              ▼
+                     nginx on port 3000
+              ┌─────────────┴──────────────┐
+              │ /api/alerts                │ other /api/*
+              ▼                            ▼
+   Notification Service (5002)     Backend API (5000)
+   GET /api/alerts                 GET /api/sensors
+                                   GET /api/predictions
 ```
 
 ## Prerequisites
@@ -48,8 +58,9 @@ Then open `http://localhost:3000/`.
 ### Kubernetes
 
 `k8s/frontend/deployment.yaml` runs the same nginx image and
-`k8s/frontend/service.yaml` exposes it internally (ClusterIP). A LoadBalancer
-service is future work for external access.
+`k8s/frontend/service.yaml` exposes it as a NodePort on **30080** (targeting
+container port 3000). Open `http://<node-ip>:30080/` from a machine that can
+reach the cluster nodes.
 
 ### Local (standalone)
 
@@ -73,12 +84,16 @@ The tunables live in the `CONFIG` object at the top of `js/dashboard.js`:
 
 | Setting                 | Default | Purpose                                |
 |-------------------------|---------|----------------------------------------|
-| `API_BASE`              | `http://localhost:5000/api` | Backend API base URL        |
-| `NOTIFICATION_BASE`     | `http://localhost:5002/api` | Notification Service base URL |
+| `API_BASE`              | `/api` (nginx-proxied) | Backend API base URL; set an absolute URL such as `http://localhost:5000/api` when serving without nginx |
+| `NOTIFICATION_BASE`     | `/api` (nginx-proxied) | Notification Service base URL; same standalone override applies |
 | `POLL_INTERVAL_MS`      | `8000`  | How often to refresh, in milliseconds |
 | `HISTORY_POINTS`        | `20`    | How many past readings to plot        |
-| `ANOMALY_THRESHOLD`     | `0.8`   | Score above this colors a point red when `is_anomaly` is missing |
+| `ANOMALY_THRESHOLD`     | `0.8`   | Score above this marks a point red when `is_anomaly` is missing |
 | `AQ_LABELS`             | `{1..5}`| Maps the `air_quality` number to a word |
+
+`NOTIFICATION_THRESHOLD`, `MODEL_CONTAMINATION`, and `SEVERITY_STEEPNESS`
+also exist in `CONFIG` as fallbacks and are overridden by
+`GET /api/config` on page load.
 
 ## Verify your setup
 

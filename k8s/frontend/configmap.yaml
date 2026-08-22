@@ -3,5 +3,5 @@ kind: ConfigMap
 metadata:
   name: frontend-config
 data:
-  API_BASE_URL: "http://backend-api/"
-  NOTIFICATION_BASE_URL: "http://notification-service/"
+  API_BASE_URL: "http://backend-api/api/"
+  NOTIFICATION_BASE_URL: "http://notification-service/api/"
