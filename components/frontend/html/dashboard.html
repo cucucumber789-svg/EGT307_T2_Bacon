@@ -43,23 +43,36 @@
             </div>
 
             <!-- ML Analysis panel. Shows severity meter, anomaly score,
-                 and model status from the latest prediction. -->
+                 model status, and threshold reference info from the latest
+                 prediction. Threshold values mirror config.yaml. -->
             <div id="ml-status">
                 <p class="metric-label">ML Analysis</p>
                 <div class="ml-row">
                     <span class="ml-label">Severity</span>
                     <div class="severity-bar">
                         <div id="severity-fill" class="severity-fill"></div>
+                        <span id="threshold-marker-model" class="threshold-marker" title="Model boundary (score &lt; 0)"></span>
+                        <span id="threshold-marker-notify" class="threshold-marker threshold-marker-notify" title="Notification trigger"></span>
                     </div>
                     <span id="severity-value" class="ml-value">&mdash;</span>
                 </div>
                 <div class="ml-row">
                     <span class="ml-label">Anomaly Score</span>
                     <span id="anomaly-score" class="ml-value">&mdash;</span>
+                    <span id="anomaly-buffer" class="ml-hint">&mdash;</span>
                 </div>
                 <div class="ml-row">
                     <span class="ml-label">Status</span>
                     <span id="ml-status-text" class="ml-value">&mdash;</span>
+                </div>
+                <div class="ml-divider"></div>
+                <div class="ml-row ml-info">
+                    <span class="ml-label">Notify when</span>
+                    <span class="ml-value ml-value-static">score &lt; -<span id="notify-threshold-val">&mdash;</span></span>
+                </div>
+                <div class="ml-row ml-info">
+                    <span class="ml-label">Model</span>
+                    <span class="ml-value ml-value-static">contamination <span id="model-contamination-val">&mdash;</span></span>
                 </div>
             </div>
         </main>

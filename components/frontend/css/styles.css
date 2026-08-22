@@ -156,6 +156,7 @@ main {
 }
 
 .severity-bar {
+    position: relative;
     flex: 1;
     height: 32px;
     background-color: #e8e8e8;
@@ -180,6 +181,54 @@ main {
 #ml-status-text.normal {
     color: #2e9e5b;
     font-weight: bold;
+}
+
+/* ---------- Severity bar threshold markers ---------- */
+
+.threshold-marker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #555;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.threshold-marker-notify {
+    background-color: #d6455b;
+}
+
+/* ---------- Anomaly score buffer hint ---------- */
+
+.ml-hint {
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.ml-hint-alert {
+    color: #d6455b;
+    font-weight: bold;
+}
+
+/* ---------- Divider and info rows ---------- */
+
+.ml-divider {
+    border-top: 1px solid #e0e0e0;
+    margin: 12px 0;
+}
+
+.ml-info {
+    margin-bottom: 8px;
+}
+
+.ml-info:last-child {
+    margin-bottom: 0;
+}
+
+.ml-value-static {
+    font-weight: normal;
+    color: #555;
 }
 
 @media (max-width: 720px) {

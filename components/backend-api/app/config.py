@@ -37,9 +37,8 @@ class Config:
     NOTIFICATION_SERVICE_URL = os.environ.get("NOTIFICATION_SERVICE_URL", "http://localhost:5002")
 
     # --- Non-sensitive (from config.yaml) ---
-    # Maximum absolute anomaly_score for an anomaly to trigger a Telegram
-    # notification.  The IsolationForest score is negative for anomalies;
-    # we compare against the negative threshold so only genuinely anomalous
-    # readings notify — mild anomalies are stored but do not alert,
-    # reducing alert fatigue.
+    # Anomaly score threshold for Telegram notifications.  The IsolationForest
+    # score is negative for anomalies; we fire when score < -threshold, so only
+    # genuinely anomalous readings notify — mild anomalies are stored but do
+    # not alert, reducing alert fatigue.
     ANOMALY_SCORE_THRESHOLD = float(_yaml.get("anomaly_score_threshold", 0.05))

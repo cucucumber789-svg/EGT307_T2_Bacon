@@ -14,7 +14,7 @@
  * from here would re-send Telegram messages on every poll).
  */
 
-// Non-sensitive tuning values. Source of truth: config.yaml at repo root.
+// Non-sensitive tuning values. Defaults only — overridden by GET /api/config on load.
 const CONFIG = {
     API_BASE: "http://localhost:5000/api",           // where Backend API is running
     NOTIFICATION_BASE: "http://localhost:5002/api",  // where Notification Service is running
@@ -22,6 +22,9 @@ const CONFIG = {
     HISTORY_POINTS: 20,                              // how many past readings to plot on each chart
     ANOMALY_THRESHOLD: 0.8,                          // score above this colors a point red when predictions lack is_anomaly
     AQ_LABELS: { 1: "Good", 2: "Fair", 3: "Moderate", 4: "Poor", 5: "Hazardous" }, // turns the air_quality number into a word
+    NOTIFICATION_THRESHOLD: 0.05,                    // fires Telegram alert when anomaly_score < -this (source: config.yaml)
+    MODEL_CONTAMINATION: 0.02,                       // expected anomaly fraction in training data (source: config.yaml)
+    SEVERITY_STEEPNESS: 10,                          // sigmoid steepness for severity bar (source: config.yaml)
 };
 
 // ---------- element references ----------
@@ -40,7 +43,12 @@ const aqUnitEl = document.getElementById("aq-unit");                 // word nex
 const severityFillEl = document.getElementById("severity-fill");     // severity bar fill
 const severityValueEl = document.getElementById("severity-value");   // severity number
 const anomalyScoreEl = document.getElementById("anomaly-score");     // anomaly score number
+const anomalyBufferEl = document.getElementById("anomaly-buffer");   // buffer distance to notification threshold
 const mlStatusTextEl = document.getElementById("ml-status-text");    // "Normal" or "Anomaly" text
+const thresholdMarkerModelEl = document.getElementById("threshold-marker-model");   // model boundary marker on severity bar
+const thresholdMarkerNotifyEl = document.getElementById("threshold-marker-notify"); // notification trigger marker on severity bar
+const notifyThresholdValEl = document.getElementById("notify-threshold-val");       // notification threshold value
+const modelContaminationValEl = document.getElementById("model-contamination-val"); // model contamination value
 
 // ---------- charts ----------
 
@@ -187,6 +195,7 @@ function updateMLStatus(prediction) {
         severityFillEl.style.width = "0%";
         severityValueEl.textContent = "\u2014";
         anomalyScoreEl.textContent = "\u2014";
+        anomalyBufferEl.textContent = "\u2014";
         mlStatusTextEl.textContent = "\u2014";
         mlStatusTextEl.className = "ml-value";
         return;
@@ -211,8 +220,16 @@ function updateMLStatus(prediction) {
     // Update severity value
     severityValueEl.textContent = severity.toFixed(2);
 
-    // Update anomaly score
+    // Update anomaly score and buffer to notification threshold
     anomalyScoreEl.textContent = score.toFixed(4);
+    const buffer = CONFIG.NOTIFICATION_THRESHOLD - Math.abs(score);
+    if (isAnomaly && buffer <= 0) {
+        anomalyBufferEl.textContent = "ALERT";
+        anomalyBufferEl.className = "ml-hint ml-hint-alert";
+    } else {
+        anomalyBufferEl.textContent = "buffer " + buffer.toFixed(4);
+        anomalyBufferEl.className = "ml-hint";
+    }
 
     // Update status text
     if (isAnomaly) {
@@ -222,6 +239,24 @@ function updateMLStatus(prediction) {
         mlStatusTextEl.textContent = "Normal";
         mlStatusTextEl.className = "ml-value normal";
     }
+}
+
+// Place the threshold markers on the severity bar at the correct positions.
+// severity = 1 / (1 + exp(SEVERITY_STEEPNESS * raw_score))
+// Model boundary at score=0 → severity=0.5 → 50%
+// Notification threshold at score=-threshold → severity depends on steepness
+function placeThresholdMarkers() {
+    const steepness = CONFIG.SEVERITY_STEEPNESS;
+    const modelSeverity = 1 / (1 + Math.exp(steepness * 0));               // score=0 → 50%
+    const notifySeverity = 1 / (1 + Math.exp(steepness * -CONFIG.NOTIFICATION_THRESHOLD));
+    thresholdMarkerModelEl.style.left = (modelSeverity * 100) + "%";
+    thresholdMarkerNotifyEl.style.left = (notifySeverity * 100) + "%";
+}
+
+// Populate the static threshold reference rows once at load.
+function setThresholdInfo() {
+    notifyThresholdValEl.textContent = CONFIG.NOTIFICATION_THRESHOLD;
+    modelContaminationValEl.textContent = (CONFIG.MODEL_CONTAMINATION * 100) + "%";
 }
 
 // ---------- main polling loop ----------
@@ -276,5 +311,23 @@ async function refresh() {
     }
 }
 
-refresh();
-setInterval(refresh, CONFIG.POLL_INTERVAL_MS);
+// ---------- startup ----------
+
+// Fetch config from the backend API first, then start the polling loop.
+// If the config fetch fails, the hardcoded defaults in CONFIG are used.
+async function loadConfig() {
+    try {
+        const cfg = await fetchJSON("/config");
+        CONFIG.NOTIFICATION_THRESHOLD = cfg.notification_threshold;
+        CONFIG.MODEL_CONTAMINATION = cfg.model_contamination;
+        CONFIG.SEVERITY_STEEPNESS = cfg.severity_steepness;
+    } catch (err) {
+        console.warn("Could not load /api/config, using defaults:", err);
+    }
+    placeThresholdMarkers();
+    setThresholdInfo();
+    refresh();
+    setInterval(refresh, CONFIG.POLL_INTERVAL_MS);
+}
+
+loadConfig();

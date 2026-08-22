@@ -4,6 +4,7 @@ from app.database import engine, Base
 from app.models import prediction, sensor
 from app.routers.prediction import prediction_bp
 from app.routers.sensor import sensor_bp
+from app.routers.config import config_bp
 
 
 def create_app():
@@ -21,6 +22,7 @@ def create_app():
 
     app.register_blueprint(sensor_bp, url_prefix="/api")
     app.register_blueprint(prediction_bp, url_prefix="/api")
+    app.register_blueprint(config_bp, url_prefix="/api")
 
     @app.after_request
     def allow_dashboard(response):
