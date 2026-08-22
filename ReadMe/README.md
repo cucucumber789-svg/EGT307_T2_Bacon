@@ -83,7 +83,9 @@ No Node.js is required — the frontend is plain static files served by nginx.
 
 Create a `.env` file in the repo root (git-ignored) before starting. The
 `env-validator` service runs automatically and blocks startup until all
-values are valid:
+values are valid. `config.yaml` (committed) holds non-sensitive tuning
+values — thresholds, ML hyperparameters, simulator intervals — and is
+mounted into the relevant containers as a read-only volume.
 
 ```bash
 cp .env.example .env   # then edit with your values
@@ -119,7 +121,10 @@ curl -X POST http://localhost:5000/api/predict \
   -H "Content-Type: application/json" \
   -d '{"temperature":45,"humidity":90,"air_quality":1}'
 
-# 4. Open the dashboard
+# 4. Check the config thresholds (should match config.yaml)
+curl http://localhost:5000/api/config
+
+# 5. Open the dashboard
 #    http://localhost:3000/html/dashboard.html
 ```
 
@@ -136,7 +141,10 @@ Invoke-RestMethod -Uri http://localhost:5000/api/predict -Method Post `
   -ContentType "application/json" `
   -Body '{"temperature":45,"humidity":90,"air_quality":1}'
 
-# 4. Open the dashboard
+# 4. Check the config thresholds (should match config.yaml)
+Invoke-RestMethod -Uri http://localhost:5000/api/config
+
+# 5. Open the dashboard
 Start-Process "http://localhost:3000/html/dashboard.html"
 ```
 
@@ -237,10 +245,15 @@ pip install -r requirements.txt
 python -m app.main
 ```
 
-Listens on port 5002. The Telegram credentials are loaded from `.env`
-automatically. The alert thresholds default in code (`TEMP_THRESHOLD`
-39, `HUMIDITY_THRESHOLD` 55, `AQ_THRESHOLD` 2). Full Telegram setup and
-troubleshooting: `components/notification-service/README.md`.
+Listens on port 5002. This service is a **pure message sender** — it does
+not make alerting decisions. The Backend API calls `POST /api/notify` when the
+ML model flags an anomaly with `anomaly_score < -threshold` (configured in
+`config.yaml`). The notification service forwards the alert message to Telegram
+and stores it in memory for the dashboard's `GET /api/alerts` endpoint.
+
+Without Telegram credentials the service still runs and records alerts, but
+prints `Telegram not configured, skipping send` instead of messaging anyone.
+Full Telegram setup and troubleshooting: `components/notification-service/README.md`.
 
 #### Test the notification service
 
@@ -323,6 +336,16 @@ cd components/ml-service
 python -m app.services.model_service
 ```
 
+**How the scoring works:**
+
+| Concept | What it is | Where it's set |
+|---------|-----------|----------------|
+| Anomaly score | IsolationForest `decision_function()` — negative = anomaly, positive = normal. Magnitude indicates distance from the decision boundary. | Model internal (trained from data) |
+| Contamination | Expected fraction of anomalies in training data (default 2%). Determines where the model draws its decision boundary (`score = 0`). | `config.yaml` → `ml_service.contamination` |
+| Severity | Sigmoid mapping of the anomaly score to 0–1 (`severity = 1/(1 + exp(steepness * score))`). Green (low) → yellow → red (high). | `config.yaml` → `ml_service.severity_steepness` |
+| Notification threshold | Telegram only fires when `anomaly_score < -threshold` (default 0.05). Mild anomalies are stored but do not notify. | `config.yaml` → `anomaly_score_threshold` |
+| Safety net | Hardcoded `ABSOLUTE_MAX_TEMP = 50°C` — physically dangerous values get pinned to severity 1.0 regardless of model score. | `config.yaml` → `ml_service.absolute_max_temp` |
+
 #### 6. Sensor Simulator
 
 ```bash
@@ -330,6 +353,13 @@ cd components/sensor
 pip install -r requirements.txt
 python sensor_simulator.py
 ```
+
+The simulator replays `validation_data.example.csv` row by row, posting one
+reading every few seconds to the Data Ingestion Service. Each loop pass
+applies random jitter to values (temperature ±2, humidity ±5, air quality ±1)
+for diversity. ~5% of readings are synthetic anomalies (extreme values) to
+trigger ML alerts for demo purposes. Send interval and anomaly rate are
+read from `config.yaml`.
 
 | Variable | Default | Note |
 |----------|---------|------|
@@ -348,6 +378,15 @@ Open `http://localhost:3000/html/dashboard.html`. The dashboard is static —
 it needs the Backend API (5000) and Notification Service (5002) running, and
 loads Chart.js from a CDN (internet required). Opening the file directly with
 `file://` will not work. See `components/frontend/README.md` for details.
+
+**What the dashboard shows:**
+
+- **Sensor charts** — Temperature, humidity, and air quality over the last 20 readings. Anomalous points are coloured red.
+- **Notification panel** — Most recent alert from the Notification Service, with timestamp. Green = all normal, red = alert active.
+- **ML Analysis panel** — Severity bar with threshold markers (dark line at model boundary, red line at notification trigger), anomaly score with buffer-to-alert indicator, status (Normal/Anomaly), and reference rows for notification threshold and model contamination.
+
+The dashboard fetches config from `GET /api/config` on page load so threshold
+displays stay in sync with `config.yaml` — no hardcoding in JavaScript.
 
 ### Run everything locally (no Docker)
 
@@ -381,6 +420,12 @@ system-level design notes in
 
 - The ML model trains on the limited cleaned dataset, so its accuracy may
   differ on new or unseen data.
+- The notification threshold buffer (`anomaly_score_threshold` in `config.yaml`)
+  is a design choice — tuning it controls the tradeoff between alert
+  sensitivity and noise. Too low and mild anomalies trigger Telegram; too
+  high and genuine anomalies are missed.
+- The sensor simulator replays a static CSV dataset with jitter, so it may
+  not fully represent real-world sensor behaviour or drift.
 
 ## Docker Containerization
 

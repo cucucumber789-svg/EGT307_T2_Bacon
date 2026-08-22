@@ -46,6 +46,8 @@ All components are containerised with Docker and deployed via Kubernetes.
 ```
 EGT307_T2_Bacon/
 ├── docker-compose.yml             # Local multi-service development
+├── config.yaml                    # Centralized non-sensitive config (thresholds, tuning)
+├── .env.example                   # Template for secrets (committed); .env is gitignored
 ├── EGT307 PRESENTATION.pptx       # Project presentation
 ├── EGT307_Contribution.docx       # Individual contribution breakdown
 │
@@ -77,7 +79,8 @@ EGT307_T2_Bacon/
 │   │   │   ├── routers/
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── sensor.py      # Sensor CRUD routes
-│   │   │   │   └── prediction.py  # Predict + predictions routes
+│   │   │   │   ├── prediction.py  # Predict + predictions routes
+│   │   │   │   └── config.py      # GET /api/config — serves thresholds to frontend
 │   │   │   └── services/
 │   │   │       ├── __init__.py
 │   │   │       ├── sensor_service.py  # Sensor business logic (TBD)
@@ -233,32 +236,35 @@ in which case they are relative to the service folder inside `components/`.
 
 | File                                                                  | Purpose |
 |-----------------------------------------------------------------------|---------|
-| `docker-compose.yml`                                                  | Defines all services (backend, ML, notification, ingestion, database, frontend) and how they run together locally. One command starts everything. The Sensor Simulator is not yet defined here. |
+| `config.yaml`                                                         | Centralized non-sensitive configuration — thresholds, ML hyperparameters, simulator tuning. Committed to git. Services read it at startup via `_load_yaml()`; the Backend API also serves it to the frontend via `GET /api/config`. |
+| `.env.example`                                                        | Template for secrets (Telegram token, database credentials). Committed; `.env` is gitignored. |
+| `docker-compose.yml`                                                  | Defines all services (backend, ML, notification, ingestion, database, frontend, sensor simulator) and how they run together locally. Mounts `config.yaml` as a read-only volume into backend-api, ml-service, and sensor-simulator. One command starts everything. |
 | `scripts/validate-env.sh`                                             | Shell script for validating `.env`. Used by the `env-validator` Docker container to block startup until all secrets are set. |
 | `scripts/validate-env.py`                                             | Python script for validating `.env` in standalone mode. Loads `.env` into the environment and checks all required variables. |
 | `components/env-validator/Dockerfile`                                 | Minimal alpine container that runs `validate-env.sh` as a healthcheck. Other services depend on it being healthy before starting. |
 | `components/backend-api/app/main.py`                               | Flask app entry point. Creates the app, registers blueprints (routers), and starts the server. This is the first file that runs. |
-| `components/backend-api/app/config.py`                             | Stores all configuration (database URL, ML service URL, etc.) loaded from environment variables. Keeps secrets out of code. |
+| `components/backend-api/app/config.py`                             | Loads secrets from environment variables (`.env`) and non-sensitive tuning values from `config.yaml` via `_load_yaml()`. Exposes `Config` class and raw `_yaml` dict used by the config endpoint. |
 | `components/backend-api/app/database.py`                           | Creates the SQLAlchemy engine and session. Other files import `SessionLocal` to query or insert data into PostgreSQL. |
 | `components/backend-api/app/spark_session.py`                      | Creates and returns a PySpark `SparkSession`. Services import this to run Spark data processing operations. (TBD) |
 | `components/backend-api/app/routers/sensor.py`                     | Defines Flask Blueprint with sensor endpoints (`GET /api/sensors`, `GET /api/sensors/count`, `POST /api/sensors`, `POST /api/sensors/batch`). Receives HTTP requests and queries/inserts directly into the DB. |
 | `components/backend-api/app/routers/prediction.py`                 | Defines Flask Blueprint with prediction endpoints (`POST /api/predict`, `GET /api/predictions`). Calls the ML service, persists results via `prediction_service.py`, and passes ML errors (e.g. 503 not trained) through to the caller. |
+| `components/backend-api/app/routers/config.py`                     | Defines Flask Blueprint with `GET /api/config` endpoint. Returns non-sensitive thresholds from `config.yaml` (notification threshold, model contamination, severity steepness) so the frontend dashboard stays in sync without hardcoding values. |
 | `components/backend-api/app/models/sensor.py`                      | SQLAlchemy model defining the `sensor_readings` table schema (`SensorReading`). Used by database.py and imported by routes to query/insert data. |
 | `components/backend-api/app/models/prediction.py`                  | SQLAlchemy model defining the `predictions` table schema (`Prediction`). Stores ML anomaly results so they survive ML restarts and are queryable by the dashboard. |
 | `components/backend-api/app/schemas/sensor.py`                     | Request/response schemas for validating JSON payloads and serialising responses. (TBD) |
 | `components/backend-api/app/services/sensor_service.py`            | Business logic for sensor data. May use PySpark for data transformations and aggregations. (TBD) |
 | `components/backend-api/app/services/ml_client.py`                 | HTTP client that sends readings to the ML microservice (`/api/predict`, `/api/predict/batch`) and returns the prediction results. |
 | `components/backend-api/app/services/notification_client.py`       | HTTP client that POSTs anomalous readings to the Notification microservice (`/api/notify`). Best-effort: never raises, so an unavailable notification service cannot break prediction storage. |
-| `components/backend-api/app/services/prediction_service.py`        | Persists a prediction result into the `predictions` table (`store_prediction`) and serialises rows for API responses (`prediction_to_json`). When a stored prediction is an anomaly, it triggers the Notification Service (best-effort). |
+| `components/backend-api/app/services/prediction_service.py`        | Persists a prediction result into the `predictions` table (`store_prediction`) and serialises rows for API responses (`prediction_to_json`). When a stored prediction is an anomaly with `anomaly_score < -ANOMALY_SCORE_THRESHOLD`, it triggers the Notification Service (best-effort). Mild anomalies are stored but do not notify, reducing alert fatigue. |
 | `components/backend-api/Dockerfile`                                | Tells Docker how to build the backend container — installs dependencies, copies code, runs the app. |
 | `components/backend-api/requirements.txt`                          | Lists all Python packages the project needs (Flask, SQLAlchemy, etc.). |
 | `components/ml-service/app/main.py`                                | Flask app entry point for ML Service. Trains the IsolationForest model at startup when the cleaned dataset exists, otherwise starts idle and reports `model_ready: false`; registers the prediction blueprint. |
-| `components/ml-service/app/config.py`                              | Stores dataset path, IsolationForest hyperparameters, and severity steepness. Safety-net threshold (`ABSOLUTE_MAX_TEMP`) for extreme values. All values overridable via environment variables. |
+| `components/ml-service/app/config.py`                              | Loads IsolationForest hyperparameters (`n_estimators`, `contamination`), severity steepness, and safety-net threshold (`ABSOLUTE_MAX_TEMP`) from `config.yaml` via `_load_yaml()`. Dataset path and port come from environment variables. |
 | `components/ml-service/app/routers/prediction.py`                  | Defines Flask Blueprint with prediction endpoints (`POST /api/predict`, `POST /api/predict/batch`). Retries lazy training on demand and returns 503 with an actionable message when no dataset is available yet. |
-| `components/ml-service/app/services/model_service.py`              | Contains the scikit-learn **IsolationForest** anomaly-detection logic: `load_dataset()` reads the cleaned CSV, `train_model()` fits the forest, `predict()` returns anomaly score, severity, and alerts based on the model decision boundary. No hardcoded alert thresholds — the model decides. |
+| `components/ml-service/app/services/model_service.py`              | Contains the scikit-learn **IsolationForest** anomaly-detection logic: `load_dataset()` reads the cleaned CSV, `train_model()` fits the forest with the configured `contamination` parameter, `predict()` returns anomaly score (negative = anomaly), severity (sigmoid mapping score to 0–1), and alerts. The `contamination` parameter controls the model's sensitivity — it determines what fraction of training data is considered anomalous, setting the decision boundary. |
 | `components/ml-service/Dockerfile`                                 | Container definition for ML Service. |
 | `components/ml-service/requirements.txt`                           | Python dependencies for ML Service (Flask + ML framework TBD). |
-| `components/notification-service/app/main.py`                      | Single-file Flask app for the Notification Service. Pure message sender — receives ML-generated alert messages from the Backend API via `POST /api/notify` and sends them via Telegram. No alerting decisions are made here. Keeps the 50 most recent alerts in memory for the dashboard (`GET /api/alerts`). |
+| `components/notification-service/app/main.py`                      | Single-file Flask app for the Notification Service. Pure message sender — receives ML-generated alert messages from the Backend API via `POST /api/notify` and sends them via Telegram. No alerting decisions are made here. Keeps the 50 most recent alerts in memory for the dashboard (`GET /api/alerts`). Without Telegram credentials, alerts are still recorded but not sent. |
 | `components/notification-service/Dockerfile`                       | Container definition for Notification Service. |
 | `components/notification-service/requirements.txt`                 | Python dependencies for Notification Service (Flask, requests). |
 | `components/data-ingestion-service/app/main.py`                    | Flask app entry point for Data Ingestion Service. Registers ingestion blueprints. |
@@ -273,10 +279,10 @@ in which case they are relative to the service folder inside `components/`.
 | `components/database/validation_data.example.csv`                  | Test dataset with entry_ids starting at 78033, used by the Sensor Simulator to stream new readings. |
 | `components/frontend/html/dashboard.html`                          | Dashboard page markup. |
 | `components/frontend/css/styles.css`                               | Dashboard styling. |
-| `components/frontend/js/dashboard.js`                              | Dashboard logic. Polls the Backend API for sensor readings and predictions (coloring anomalous points red) and the Notification Service's `GET /api/alerts` for the alert panel, renders charts with Chart.js. |
+| `components/frontend/js/dashboard.js`                              | Dashboard logic. Fetches non-sensitive config from `GET /api/config` on load to stay in sync with `config.yaml`. Polls the Backend API for sensor readings and predictions (coloring anomalous points red) and the Notification Service's `GET /api/alerts` for the alert panel. Renders charts with Chart.js. Displays the ML Analysis panel: severity bar with threshold markers (model boundary at 50%, notification trigger at ~62%), anomaly score with buffer-to-alert indicator, and reference rows for notification threshold and model contamination. |
 | `components/frontend/Dockerfile`                                   | Container definition for the dashboard: nginx serving the static files on port 3000. |
 | `components/frontend/nginx.conf`                                   | nginx server config: listens on 3000, serves `html/`, `css/`, `js/`, and falls back to `dashboard.html`. |
-| `components/sensor/sensor_simulator.py`                            | Simulates an IoT sensor by replaying `validation_data.example.csv` row by row and posting each reading to the Data Ingestion Service via REST, one record every few seconds. |
+| `components/sensor/sensor_simulator.py`                            | Simulates an IoT sensor by replaying `validation_data.example.csv` row by row and posting each reading to the Data Ingestion Service via REST. Reads send interval and anomaly rate from `config.yaml`. Applies random jitter to values for diversity and injects ~5% synthetic anomalies (extreme readings) to trigger ML alerts for demo purposes. Loops forever to simulate a continuous sensor stream. |
 | `components/sensor/Dockerfile`                                     | Container definition for the Sensor Simulator. No exposed port — it only makes outgoing requests. |
 | `components/sensor/requirements.txt`                               | Python dependencies for the Sensor Simulator (pandas, requests). |
 | `k8s/*.yaml`                                                          | Kubernetes deployment manifests. Define how each microservice is deployed, exposed, and configured in a cluster. `k8s/database/pvc.yaml` declares the shared dataset volume both ingestion and ML mount. |
@@ -315,6 +321,8 @@ This keeps routes organised by feature instead of having everything in one file.
 |------------------|------------------------|-------------------------------------------------------------------|
 | Backend API      | Flask + PySpark        | Flask for lightweight HTTP; PySpark for large-scale               |
 |                  |                        | sensor data processing (Spark session TBD).                       |
+| Config           | PyYAML + config.yaml   | Centralized non-sensitive config (thresholds, tuning) read by     |
+|                  |                        | services at startup; served to frontend via `GET /api/config`.    |
 | Database         | PostgreSQL             | Strong relational support for structured sensor data;             |
 |                  |                        | ACID compliance; mature tooling.                                  |
 | ORM              | SQLAlchemy             | Standard Python ORM; decouples app logic from SQL.                |
@@ -363,6 +371,18 @@ This keeps routes organised by feature instead of having everything in one file.
 - **ML model is the single source of truth** — Alerting decisions are driven
   entirely by the IsolationForest model's anomaly score. The notification
   service is a pure message sender — it does not make alerting decisions
+- **Two-tier filtering reduces alert fatigue** — Not every anomaly triggers a
+  Telegram notification. The model flags anomalies when `score < 0`, but the
+  notification only fires when `score < -ANOMALY_SCORE_THRESHOLD` (default
+  0.05, configurable in `config.yaml`). This buffer means mild anomalies are
+  visible on the dashboard (red dots, severity bar) but do not spam Telegram.
+  Operators can tune the threshold in `config.yaml` to control the sensitivity
+  vs. noise tradeoff
+- **Severity sigmoid** — The ML service maps the raw anomaly score to a 0–1
+  severity value using a sigmoid function (`severity = 1/(1 + exp(steepness *
+  score))`). The steepness parameter (default 10, from `config.yaml`) controls
+  how sharply the bar transitions from green to red. This gives operators a
+  visual sense of anomaly intensity on the dashboard
 - **Safety-net threshold** — The ML service has one hardcoded safety-net
   (`ABSOLUTE_MAX_TEMP = 50°C`) for physically dangerous values that may fall
   outside the training distribution. The IsolationForest should catch these,
@@ -409,6 +429,10 @@ how you run the service. No duplication, no sync issues.
 - **Shared dataset volume** — `./components/database` is bind-mounted as
   `/data` into both ingestion and ML containers, so the raw file, the cleaned
   output, and the trained model inputs all stay in one place
+- **`config.yaml` volume** — Mounted as read-only into backend-api, ml-service,
+  and sensor-simulator (`./config.yaml:/app/config.yaml:ro`). Changing a
+  threshold in `config.yaml` and restarting the affected containers is enough
+  to retune the system — no rebuild required
 - **Kubernetes dataset storage** — The same shared folder is represented in
   k8s by the `dataset-pvc` (see `k8s/database/pvc.yaml`). Both deployments
   mount it at `/data`; the ingestion pod seeds the raw example file into it
@@ -441,11 +465,23 @@ match the neighbouring service.
   functions over classes for service logic unless state is genuinely needed.
 
 ### Configuration & Secrets
-- Every service reads configuration through
-  `os.environ.get("KEY", "default")` (a `Config` class or module constants).
-- **Secrets** (bot tokens, credentials) use empty-string defaults and are
-  injected per environment — `.env` for Compose, a k8s `Secret`, or shell
-  environment variables. Never hardcode a secret in code.
+- **Two-tier configuration** — Secrets (bot tokens, database credentials) live
+  in `.env` (gitignored) or a k8s `Secret`. Non-sensitive tuning values
+  (thresholds, ML hyperparameters, simulator intervals) live in `config.yaml`
+  at the repo root (committed). This keeps secrets out of version control
+  while making tuning values visible and reviewable.
+- **`config.yaml`** — Centralized config read by backend-api, ml-service, and
+  sensor-simulator at startup via a `_load_yaml()` helper. Each service
+  searches a few candidate paths (Docker mount, standalone relative path,
+  current directory) so the same code works in both environments. In Docker,
+  `config.yaml` is mounted as a read-only volume (`./config.yaml:/app/config.yaml:ro`).
+- **`GET /api/config`** — The Backend API serves non-sensitive config values
+  from `config.yaml` to the frontend dashboard. The dashboard fetches this on
+  page load so threshold displays and severity bar markers stay in sync with
+  the backend without hardcoding values in JavaScript.
+- **Secrets** use empty-string defaults and are injected per environment —
+  `.env` for Compose, a k8s `Secret`, or shell environment variables. Never
+  hardcode a secret in code.
 - **Env validation** — The `env-validator` service (Docker Compose) and
   `scripts/validate-env.py` (standalone) check that `.env` exists and all
   required variables are set before any service starts. In Docker, the
@@ -455,9 +491,10 @@ match the neighbouring service.
 - **Auto-loading `.env`** — Each service calls `load_dotenv()` from
   `python-dotenv` at startup, so `.env` is automatically loaded into
   `os.environ` when running standalone. No manual variable exports needed.
-- **Non-secret config** (thresholds, paths, URLs) carries a real default in
-  code, and the same value is set explicitly in `docker-compose.yml` / the k8s
-  ConfigMap so behaviour is identical whether or not the variable is set.
+- **Non-secret config in env vars** (service URLs, dataset paths) carries a
+  real default in code, and the same value is set explicitly in
+  `docker-compose.yml` / the k8s ConfigMap so behaviour is identical whether
+  or not the variable is set.
 - Never commit credentials, keys, or generated artifacts (the cleaned dataset
   is git-ignored for this reason).
 
@@ -484,14 +521,25 @@ match the neighbouring service.
 - Plain JavaScript with **Chart.js** for charts — no framework, no build
   step, no bundler. Files live under `html/`, `css/`, and `js/`.
 - A `CONFIG` object at the top of the script holds every tunable (base URLs,
-  poll interval, thresholds, labels).
+  poll interval, AQ labels). Threshold values (`NOTIFICATION_THRESHOLD`,
+  `MODEL_CONTAMINATION`, `SEVERITY_STEEPNESS`) have defaults that are
+  overridden by `GET /api/config` on page load, keeping the dashboard in sync
+  with `config.yaml` without hardcoding.
+- **ML Analysis panel** — Displays the latest prediction's severity bar,
+  anomaly score, and status. The severity bar has two threshold markers:
+  a dark line at 50% (model boundary, `score = 0`) and a red line at ~62%
+  (notification trigger, `score = -threshold`). The anomaly score row shows
+  the buffer distance to the notification threshold (or "ALERT" when exceeded).
+  Below a divider, static rows show "Notify when: `score < -0.05`" and
+  "Model: `contamination 2%`" so operators understand the tuning at a glance.
 - Cache DOM element references once at the top of the script; drive styling
   from `data-*` attributes (`#note[data-state]`) rather than toggling classes.
 - Access the API through small helpers (e.g. `fetchJSON`), `async/await`, and
   a `try/catch` per fetch so a downed dependency shows an "Offline" status
   instead of breaking the page.
-- Polling pattern: a `refresh()` function run once on load and then on a
-  timer (`setInterval`).
+- Polling pattern: a `loadConfig()` fetches config first, then `refresh()`
+  runs once and on a timer (`setInterval`). If the config fetch fails,
+  hardcoded defaults are used.
 - Plain CSS with id-based selectors for unique components and a small media
   query for narrow screens; state styling via `[data-state=...]` selectors.
 - **Served by nginx** — `components/frontend/Dockerfile` + `nginx.conf` serve
@@ -556,6 +604,7 @@ match the neighbouring service.
 |------------------|----------------------|-----------|--------------------------------------------------------------------|
 | Sensor Simulator | Data Ingestion       | REST/HTTP | Replay one sensor reading at a time                                |
 | Frontend         | Backend API          | REST/HTTP | User requests, data display                                        |
+| Frontend         | Backend API          | REST/HTTP | Fetches non-sensitive config thresholds on page load (`GET /api/config`) |
 | Frontend         | Notification Service | REST/HTTP | Reads recent alerts for the alert panel (`GET /api/alerts`)        |
 | Data Ingestion   | Backend API          | REST/HTTP | Send sensor data for processing                                    |
 | Backend API      | PostgreSQL           | SQL       | Data persistence & retrieval                                       |
@@ -626,6 +675,99 @@ standalone scripts second. The `if __name__` block is minimal (calls the
 same functions the Flask router uses, including the shared
 `train_if_available` helper), ensuring local and Docker behaviour stay
 consistent.
+
+---
+
+## Data Flow Workflows
+
+These end-to-end scenarios show how the microservices collaborate to deliver
+product value. Each workflow traces a user-visible event through the system.
+
+### Workflow 1: Sensor reading arrives
+
+**Trigger:** Sensor Simulator sends a reading to the Data Ingestion Service.
+
+```
+Sensor Simulator
+  │  POST /api/ingest/reading
+  ▼
+Data Ingestion Service
+  │  validates + formats the reading
+  │  POST /api/sensors  →  Backend API  →  PostgreSQL (stored)
+  ▼
+Backend API
+  │  POST /api/predict  →  ML Service (anomaly scoring)
+  │  stores prediction in PostgreSQL
+  │  if anomaly_score < -0.05:
+  │    POST /api/notify  →  Notification Service  →  Telegram
+  ▼
+Frontend Dashboard (polls every 8s)
+  │  GET /api/sensors       →  updates charts + latest values
+  │  GET /api/predictions   →  colours anomalous points red
+  │  GET /api/alerts        →  shows alert in notification panel
+  │  GET /api/config        →  keeps threshold displays in sync
+```
+
+**Product value:** A single sensor reading flows through validation, storage,
+ML analysis, optional alerting, and dashboard display — all without manual
+intervention. The user sees the reading on the dashboard within seconds.
+
+### Workflow 2: Anomaly detected and alerted
+
+**Trigger:** ML Service scores a reading and the anomaly score crosses the
+notification threshold (`score < -0.05`).
+
+```
+ML Service
+  │  model.decision_function() → raw_score = -0.08
+  │  model.predict()           → -1 (anomaly)
+  │  severity = sigmoid(-0.08) → 0.71
+  │  returns: {anomaly_score: -0.08, severity: 0.71, is_anomaly: true}
+  ▼
+Backend API (prediction_service.py)
+  │  stores prediction in PostgreSQL
+  │  checks: is_anomaly AND anomaly_score < -0.05 → True
+  │  calls notification_client.notify_anomaly()
+  ▼
+Notification Service
+  │  receives alert message
+  │  sends Telegram message (if configured)
+  │  stores in recent_alerts for dashboard
+  ▼
+Frontend Dashboard
+  │  red dot appears on charts at that timestamp
+  │  severity bar fills to 71% (past the ~62% notification marker)
+  │  anomaly score shows "ALERT" (buffer ≤ 0)
+  │  notification panel shows the alert message + timestamp
+```
+
+**Product value:** The two-tier filtering ensures only genuinely anomalous
+readings trigger Telegram notifications. Mild anomalies (score between 0 and
+-0.05) are visible on the dashboard but do not cause alert fatigue.
+
+### Workflow 3: Operator tunes the notification threshold
+
+**Trigger:** Operator edits `config.yaml` to change `anomaly_score_threshold`.
+
+```
+config.yaml (anomaly_score_threshold: 0.1)
+  │
+  ├──▶ Backend API (restart)
+  │      Config.ANOMALY_SCORE_THRESHOLD = 0.1
+  │      prediction_service now only notifies when score < -0.1
+  │
+  ├──▶ Frontend Dashboard (page reload)
+  │      GET /api/config → {notification_threshold: 0.1}
+  │      severity bar notification marker shifts position
+  │      "Notify when" row updates to "score < -0.1"
+  │
+  └──▶ ML Service (restart) — no change needed
+         contamination and steepness unchanged
+```
+
+**Product value:** Threshold tuning is a config-file change, not a code change.
+Operators can adjust the sensitivity vs. noise tradeoff without redeploying
+or rebuilding containers — just edit `config.yaml` and restart affected services.
 
 ---
 
