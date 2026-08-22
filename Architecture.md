@@ -50,10 +50,8 @@ EGT307_T2_Bacon/
 ├── .env.example                   # Template for secrets (committed); .env is gitignored
 ├── EGT307 PRESENTATION.pptx       # Project presentation
 ├── EGT307_Contribution.docx       # Individual contribution breakdown
-│
-├── ReadMe/                        # Project documentation
-│   ├── README.md
-│   └── Architecture.md
+├── README.md                      # Project overview & quick start
+├── Architecture.md                # System architecture & design docs
 │
 ├── scripts/                       # Validation & utility scripts
 │   ├── validate-env.sh            # Shell env validation (used by Docker)
