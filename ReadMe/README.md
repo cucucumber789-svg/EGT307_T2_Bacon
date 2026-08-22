@@ -2,11 +2,11 @@
 
 ## Task Assignment
 
-| Name     | Task                                                                                                    | Microservice                           |
-|----------|---------------------------------------------------------------------------------------------------------|----------------------------------------|
-| Wei Guan | Notification Service, Frontend Dashboard, Sensor Simulator, Presentation, Data Sources                   | sensor simulator, notification-service |
-| Shun Wei | Backend API, System Integration, Docker & Kubernetes, System Architecture, Code Quality & Documentation | backend-api                            |
-| Derek    | Data Ingestion Service, Database Setup, Machine Learning Service                                        | data-ingestion, ml service              |
+| Name     | Task                                                                                                                                        | Microservice                           |
+|----------|---------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------|
+| Wei Guan | Notification Service, Frontend Dashboard, Sensor Simulator, Presentation, Data Sources                                                      | sensor simulator, notification-service |
+| Shun Wei | Backend API, System Integration, Docker & Kubernetes, System Architecture, Code Quality & Documentation, Centralized Config, ML Integration | backend-api                            |
+| Derek    | Data Ingestion Service, Database Setup, Machine Learning Service                                                                            | data-ingestion, ml-service             |
 
 ## Project Overview
 
