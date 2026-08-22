@@ -418,18 +418,6 @@ troubleshooting:
 system-level design notes in
 [`Architecture.md`](./Architecture.md).
 
-### Known limitations
-
-- The ML model trains on the limited cleaned dataset, so its accuracy may
-  differ on new or unseen data.
-- The notification threshold buffer (`anomaly_score_threshold` in `config.yaml`)
-  is a design choice — tuning it controls the tradeoff between alert
-  sensitivity and noise. Too low and mild anomalies trigger Telegram; too
-  high and genuine anomalies are missed.
-- The sensor simulator replays a static CSV dataset with jitter, so it may
-  not fully represent real-world sensor behaviour or drift.
-
-
 ## Docker Containerization
 
 Each application component is packaged as a Docker container to provide a lightweight, portable, and consistent runtime environment across development, testing, and production. Docker eliminates dependency conflicts and ensures that the application behaves consistently regardless of the deployment platform.
