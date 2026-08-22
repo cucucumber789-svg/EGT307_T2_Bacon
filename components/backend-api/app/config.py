@@ -22,4 +22,4 @@ class Config:
     # Minimum severity for an anomaly to trigger a Telegram notification.
     # Anomalies below this threshold are still stored in the DB and shown
     # on the dashboard, but do not notify — reducing alert fatigue.
-    SEVERITY_NOTIFY_THRESHOLD = float(os.environ.get("SEVERITY_NOTIFY_THRESHOLD", "0.1"))
+    SEVERITY_NOTIFY_THRESHOLD = float(os.environ["SEVERITY_NOTIFY_THRESHOLD"])

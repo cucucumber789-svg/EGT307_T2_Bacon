@@ -99,6 +99,11 @@ check_var "TELEGRAM_CHAT_ID" "your_chat_id_here" \
   For groups the id is negative (e.g. -1001234567890)
   Full guide: components/notification-service/README.md"
 
+check_var "SEVERITY_NOTIFY_THRESHOLD" "" \
+"Severity threshold for Telegram notifications (0.0 - 1.0):
+  Lower values = more alerts, higher values = fewer alerts.
+  Recommended: 0.05 for lenient filtering."
+
 # ---------------------------------------------------------------------------
 # 3. Summary
 # ---------------------------------------------------------------------------
