@@ -19,7 +19,9 @@ class Config:
     # Base URL of the Notification microservice used to send anomaly alerts.
     NOTIFICATION_SERVICE_URL = os.environ.get("NOTIFICATION_SERVICE_URL", "http://localhost:5002")
 
-    # Minimum severity for an anomaly to trigger a Telegram notification.
-    # Anomalies below this threshold are still stored in the DB and shown
-    # on the dashboard, but do not notify — reducing alert fatigue.
-    SEVERITY_NOTIFY_THRESHOLD = float(os.environ["SEVERITY_NOTIFY_THRESHOLD"])
+    # Maximum absolute anomaly_score for an anomaly to trigger a Telegram
+    # notification.  The IsolationForest score is negative for anomalies;
+    # we compare against the negative threshold so only genuinely anomalous
+    # readings notify — mild anomalies are stored but do not alert,
+    # reducing alert fatigue.
+    ANOMALY_SCORE_THRESHOLD = float(os.environ["ANOMALY_SCORE_THRESHOLD"])
