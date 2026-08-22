@@ -10,6 +10,8 @@
 
 ## Project Overview
 
+The Smart Environmental Monitoring System monitors environmental conditions such as temperature, humidity, CO₂, and air quality. Sensor data is collected and processed before being analysed by the Machine Learning Service to detect abnormal conditions. The system uses a microservices architecture with a dashboard for monitoring and a Notification Service that sends alerts through Telegram when abnormal readings are detected. This helps users identify potential environmental hazards quickly and respond when needed.
+
 ## Problem Statement
 
 Many environmental monitoring systems only display sensor readings without providing intelligent analysis or early detection of abnormal conditions. This requires users to manually monitor large amounts of data, which is time-consuming and may lead to delayed responses. 
@@ -427,6 +429,7 @@ system-level design notes in
 - The sensor simulator replays a static CSV dataset with jitter, so it may
   not fully represent real-world sensor behaviour or drift.
 
+
 ## Docker Containerization
 
 Each application component is packaged as a Docker container to provide a lightweight, portable, and consistent runtime environment across development, testing, and production. Docker eliminates dependency conflicts and ensures that the application behaves consistently regardless of the deployment platform.
@@ -437,4 +440,6 @@ The containers are orchestrated using Kubernetes, which automates deployment, sc
 
 ## Issues and Limitations
 
-The system uses a CSV dataset to simulate IoT sensor data instead of real sensors, so it may not fully represent real-world conditions. The machine learning model is also trained on a limited dataset, which may affect its accuracy when new or different data is used.
+- Limited Dataset and Simulation: The system uses a limited, static CSV dataset to simulate IoT sensors, so it may not fully represent real-world sensor behaviour or how the ML model performs on new data.
+
+- Alert Threshold: The notification threshold buffer (`anomaly_score_threshold` in `config.yaml`) is a design choice — tuning it controls the tradeoff between alert sensitivity and noise. Too low and mild anomalies trigger Telegram; too high and genuine anomalies are missed.
