@@ -86,14 +86,23 @@ The tunables live in the `CONFIG` object at the top of `js/dashboard.js`:
 |-------------------------|---------|----------------------------------------|
 | `API_BASE`              | `/api` (nginx-proxied) | Backend API base URL; set an absolute URL such as `http://localhost:5000/api` when serving without nginx |
 | `NOTIFICATION_BASE`     | `/api` (nginx-proxied) | Notification Service base URL; same standalone override applies |
-| `POLL_INTERVAL_MS`      | `8000`  | How often to refresh, in milliseconds |
-| `HISTORY_POINTS`        | `20`    | How many past readings to plot        |
-| `ANOMALY_THRESHOLD`     | `0.8`   | Score above this marks a point red when `is_anomaly` is missing |
+| `POLL_INTERVAL_MS`      | `2000`  | Target time between refresh starts, in milliseconds |
+| `HISTORY_POINTS`        | `20`    | Minimum number of past readings to plot |
+| `MAX_HISTORY_POINTS`    | `200`   | Maximum number of readings fetched and plotted |
+| `NOTIFICATION_THRESHOLD`| `0.05`  | Score threshold for Telegram notifications |
+| `MODEL_CONTAMINATION`   | `0.02`  | Expected fraction of anomalies in training data |
+| `SEVERITY_STEEPNESS`    | `10`    | Sharpness of the dashboard severity mapping |
 | `AQ_LABELS`             | `{1..5}`| Maps the `air_quality` number to a word |
 
 `NOTIFICATION_THRESHOLD`, `MODEL_CONTAMINATION`, and `SEVERITY_STEEPNESS`
 also exist in `CONFIG` as fallbacks and are overridden by
 `GET /api/config` on page load.
+
+The config response also provides `sensor_send_interval_seconds`. The
+dashboard uses it to retain enough readings for two refresh cycles, with a
+minimum of 20 and a maximum of 200 points. Polling remains independent from
+the sensor rate. Slow refreshes do not overlap; the next refresh waits until
+the current one finishes.
 
 ## Verify your setup
 

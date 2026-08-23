@@ -364,11 +364,11 @@ Backend API
   │  if score < -threshold:
   │    POST /api/notify → Notification Service → Telegram
   ▼
-Frontend Dashboard (polls every 8s)
+Frontend Dashboard (targets a 2s polling cadence)
   │  GET /api/sensors       → charts + latest values
   │  GET /api/predictions   → anomalous points coloured red
   │  GET /api/alerts        → notification panel
-  │  GET /api/config        → threshold displays in sync
+  │  GET /api/config        → thresholds and sensor cadence in sync
 ```
 
 A single sensor reading flows through validation, storage, ML analysis,

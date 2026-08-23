@@ -260,7 +260,9 @@ the service.
   poll interval, AQ labels). Threshold values (`NOTIFICATION_THRESHOLD`,
   `MODEL_CONTAMINATION`, `SEVERITY_STEEPNESS`) have defaults that are
   overridden by `GET /api/config` on page load, keeping the dashboard in sync
-  with `config.yaml` without hardcoding.
+  with `config.yaml` without hardcoding. The same response provides the sensor
+  send interval so the dashboard can size its history window for two refresh
+  cycles, bounded to 20–200 points.
 - **ML Analysis panel** — Displays the latest prediction's severity bar,
   anomaly score, and status. The severity bar has two threshold markers:
   a dark line at 50% (model boundary, `score = 0`) and a red line at ~62%
@@ -274,9 +276,11 @@ the service.
 - Access the API through small helpers (e.g. `fetchJSON`), `async/await`, and
   a `try/catch` per fetch so a downed dependency shows an "Offline" status
   instead of breaking the page.
-- Polling pattern: a `loadConfig()` fetches config first, then `refresh()`
-  runs once and on a timer (`setInterval`). If the config fetch fails,
-  hardcoded defaults are used.
+- Polling pattern: `loadConfig()` fetches config first, then `poll()` runs a
+  refresh and uses `setTimeout` for the remainder of the configured interval.
+  This keeps the target cadence without allowing slow API responses to create
+  overlapping requests. If the config fetch fails, hardcoded defaults are
+  used.
 - Plain CSS with id-based selectors for unique components and a small media
   query for narrow screens; state styling via `[data-state=...]` selectors.
 - **Served by nginx** — `components/frontend/Dockerfile` + `nginx.conf` serve

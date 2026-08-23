@@ -18,8 +18,9 @@
 const CONFIG = {
     API_BASE: "/api",           // proxied to Backend API via nginx
     NOTIFICATION_BASE: "/api",  // proxied to Notification Service via nginx
-    POLL_INTERVAL_MS: 8000,                          // how often to refresh the page, in milliseconds
-    HISTORY_POINTS: 20,                              // how many past readings to plot on each chart
+    POLL_INTERVAL_MS: 2000,                          // target time between refresh starts, in milliseconds
+    HISTORY_POINTS: 20,                              // adjusted from the sensor interval on page load
+    MAX_HISTORY_POINTS: 200,                         // bound API responses and chart rendering work
     AQ_LABELS: { 1: "Good", 2: "Fair", 3: "Moderate", 4: "Poor", 5: "Hazardous" }, // turns the air_quality number into a word
     NOTIFICATION_THRESHOLD: 0.05,                    // fires Telegram alert when anomaly_score < -this (source: config.yaml)
     MODEL_CONTAMINATION: 0.02,                       // expected anomaly fraction in training data (source: config.yaml)
@@ -248,6 +249,21 @@ function setThresholdInfo() {
     modelContaminationValEl.textContent = (CONFIG.MODEL_CONTAMINATION * 100) + "%";
 }
 
+// Keep enough readings to cover two dashboard refresh cycles. The dashboard
+// remains responsive at fast sensor rates without polling at sensor speed.
+function setHistoryPointsForSensorInterval(sensorIntervalSeconds) {
+    const interval = Number(sensorIntervalSeconds);
+    if (!Number.isFinite(interval) || interval <= 0) return;
+
+    const pointsForTwoPolls = Math.ceil(
+        (CONFIG.POLL_INTERVAL_MS * 2) / (interval * 1000)
+    );
+    CONFIG.HISTORY_POINTS = Math.min(
+        CONFIG.MAX_HISTORY_POINTS,
+        Math.max(20, pointsForTwoPolls)
+    );
+}
+
 // ---------- main polling loop ----------
 
 // Runs on a timer: fetches sensor data, updates the charts, then checks and shows alerts.
@@ -304,6 +320,15 @@ async function refresh() {
 
 // ---------- startup ----------
 
+// Keep the configured cadence without allowing refreshes to overlap. If a
+// refresh exceeds the interval, the next one starts as soon as it finishes.
+async function poll() {
+    const startedAt = Date.now();
+    await refresh();
+    const elapsed = Date.now() - startedAt;
+    setTimeout(poll, Math.max(0, CONFIG.POLL_INTERVAL_MS - elapsed));
+}
+
 // Fetch config from the backend API first, then start the polling loop.
 // If the config fetch fails, the hardcoded defaults in CONFIG are used.
 async function loadConfig() {
@@ -312,13 +337,13 @@ async function loadConfig() {
         CONFIG.NOTIFICATION_THRESHOLD = cfg.notification_threshold;
         CONFIG.MODEL_CONTAMINATION = cfg.model_contamination;
         CONFIG.SEVERITY_STEEPNESS = cfg.severity_steepness;
+        setHistoryPointsForSensorInterval(cfg.sensor_send_interval_seconds);
     } catch (err) {
         console.warn("Could not load /api/config, using defaults:", err);
     }
     placeThresholdMarkers();
     setThresholdInfo();
-    refresh();
-    setInterval(refresh, CONFIG.POLL_INTERVAL_MS);
+    poll();
 }
 
 loadConfig();
