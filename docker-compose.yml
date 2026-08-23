@@ -9,7 +9,6 @@ services:
       dockerfile: components/env-validator/Dockerfile
     volumes:
       - ./.env:/app/.env:ro
-      - ./scripts:/app/scripts:ro
     healthcheck:
       test: ["CMD", "/app/scripts/validate-env.sh"]
       interval: 5s

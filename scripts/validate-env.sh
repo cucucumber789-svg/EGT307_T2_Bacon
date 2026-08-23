@@ -84,21 +84,6 @@ check_var "POSTGRES_PASSWORD" "" \
 check_var "POSTGRES_DB" "" \
     "Local dev default -- only change if you customised the database service."
 
-check_var "TELEGRAM_BOT_TOKEN" "your_token_here" \
-"Obtained from @BotFather on Telegram:
-  1. Open Telegram and message @BotFather
-  2. Send /newbot and follow the prompts
-  3. Copy the token it gives you (format: 123456789:AA...)
-  Full guide: components/notification-service/README.md"
-
-check_var "TELEGRAM_CHAT_ID" "your_chat_id_here" \
-"The chat or group where alerts are sent:
-  1. Message your bot once (any text) so it can reach you
-  2. Run: curl \"https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates\"
-  3. Look for \"chat\":{\"id\": <number>} in the response
-  For groups the id is negative (e.g. -1001234567890)
-  Full guide: components/notification-service/README.md"
-
 # ---------------------------------------------------------------------------
 # 3. Summary
 # ---------------------------------------------------------------------------

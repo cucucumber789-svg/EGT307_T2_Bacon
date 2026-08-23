@@ -42,29 +42,6 @@ REQUIRED_VARS = [
         "",
         "Local dev default — only change if you customised the database service.",
     ),
-    (
-        "TELEGRAM_BOT_TOKEN",
-        "your_token_here",
-        (
-            "Obtained from @BotFather on Telegram:\n"
-            "  1. Open Telegram and message @BotFather\n"
-            "  2. Send /newbot and follow the prompts\n"
-            "  3. Copy the token it gives you (format: 123456789:AA...)\n"
-            "  Full guide: components/notification-service/README.md"
-        ),
-    ),
-    (
-        "TELEGRAM_CHAT_ID",
-        "your_chat_id_here",
-        (
-            "The chat or group where alerts are sent:\n"
-            "  1. Message your bot once (any text) so it can reach you\n"
-            "  2. Run: curl \"https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates\"\n"
-            '  3. Look for "chat":{"id": <number>} in the response\n'
-            "  For groups the id is negative (e.g. -1001234567890)\n"
-            "  Full guide: components/notification-service/README.md"
-        ),
-    ),
 ]
 
 
