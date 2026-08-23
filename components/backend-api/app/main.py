@@ -16,6 +16,9 @@ def create_app():
     """
     app = Flask(__name__)
 
+    import logging
+    logging.getLogger("werkzeug").setLevel("WARNING")
+
     # Dev convenience: auto-create tables so a fresh database works without
     # running migrations by hand.
     Base.metadata.create_all(bind=engine)

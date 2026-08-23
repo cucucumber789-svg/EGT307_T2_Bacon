@@ -248,7 +248,7 @@ in which case they are relative to the service folder inside `components/`.
 | `scripts/validate-env.sh`                                             | Shell script for validating `.env`. Used by the `env-validator` Docker container to block startup until all secrets are set. |
 | `scripts/validate-env.py`                                             | Python script for validating `.env` in standalone mode. Loads `.env` into the environment and checks all required variables. |
 | `components/env-validator/Dockerfile`                                 | Minimal alpine container that runs `validate-env.sh` as a healthcheck. Other services depend on it being healthy before starting. |
-| `components/backend-api/app/main.py`                               | Flask app entry point. Creates the app, registers blueprints (routers), and starts the server. This is the first file that runs. |
+| `components/backend-api/app/main.py`                               | Flask app entry point. Creates the app, registers blueprints (routers), and starts the server. Sets the `werkzeug` logger to WARNING level so routine request logs (200, 201) do not clutter terminal output. |
 | `components/backend-api/app/config.py`                             | Loads secrets from environment variables (`.env`) and non-sensitive tuning values from `config.yaml` via `_load_yaml()`. Exposes `Config` class and raw `_yaml` dict used by the config endpoint. |
 | `components/backend-api/app/database.py`                           | Creates the SQLAlchemy engine and session. Other files import `SessionLocal` to query or insert data into PostgreSQL. |
 | `components/backend-api/app/spark_session.py`                      | Creates and returns a PySpark `SparkSession`. Services import this to run Spark data processing operations. (TBD) |
@@ -264,16 +264,16 @@ in which case they are relative to the service folder inside `components/`.
 | `components/backend-api/app/services/prediction_service.py`        | Persists a prediction result into the `predictions` table (`store_prediction`) and serialises rows for API responses (`prediction_to_json`). When a stored prediction is an anomaly with `anomaly_score < -ANOMALY_SCORE_THRESHOLD`, it triggers the Notification Service (best-effort). Mild anomalies are stored but do not notify, reducing alert fatigue. |
 | `components/backend-api/Dockerfile`                                | Tells Docker how to build the backend container — installs dependencies, copies code, runs the app. |
 | `components/backend-api/requirements.txt`                          | Lists all Python packages the project needs (Flask, SQLAlchemy, etc.). |
-| `components/ml-service/app/main.py`                                | Flask app entry point for ML Service. Trains the IsolationForest model at startup when the cleaned dataset exists, otherwise starts idle and reports `model_ready: false`; registers the prediction blueprint. |
+| `components/ml-service/app/main.py`                                | Flask app entry point for ML Service. Trains the IsolationForest model at startup when the cleaned dataset exists, otherwise starts idle and reports `model_ready: false`; registers the prediction blueprint. Sets the `werkzeug` logger to WARNING level. |
 | `components/ml-service/app/config.py`                              | Loads IsolationForest hyperparameters (`n_estimators`, `contamination`), severity steepness, and safety-net threshold (`ABSOLUTE_MAX_TEMP`) from `config.yaml` via `_load_yaml()`. Dataset path and port come from environment variables. |
 | `components/ml-service/app/routers/prediction.py`                  | Defines Flask Blueprint with prediction endpoints (`POST /api/predict`, `POST /api/predict/batch`). Retries lazy training on demand and returns 503 with an actionable message when no dataset is available yet. |
 | `components/ml-service/app/services/model_service.py`              | Contains the scikit-learn **IsolationForest** anomaly-detection logic: `load_dataset()` reads the cleaned CSV, `train_model()` fits the forest with the configured `contamination` parameter, `predict()` returns anomaly score (negative = anomaly), severity (sigmoid mapping score to 0–1), and alerts. The `contamination` parameter controls the model's sensitivity — it determines what fraction of training data is considered anomalous, setting the decision boundary. |
 | `components/ml-service/Dockerfile`                                 | Container definition for ML Service. |
 | `components/ml-service/requirements.txt`                           | Python dependencies for ML Service (Flask + ML framework TBD). |
-| `components/notification-service/app/main.py`                      | Single-file Flask app for the Notification Service. Pure message sender — receives ML-generated alert messages from the Backend API via `POST /api/notify` and sends them via Telegram. No alerting decisions are made here. Keeps the 50 most recent alerts in memory for the dashboard (`GET /api/alerts`). Without Telegram credentials, alerts are still recorded but not sent. |
+| `components/notification-service/app/main.py`                      | Single-file Flask app for the Notification Service. Pure message sender — receives ML-generated alert messages from the Backend API via `POST /api/notify` and sends them via Telegram. No alerting decisions are made here. Keeps the 50 most recent alerts in memory for the dashboard (`GET /api/alerts`). Without Telegram credentials, alerts are still recorded but not sent. Sets the `werkzeug` logger to WARNING level. |
 | `components/notification-service/Dockerfile`                       | Container definition for Notification Service. |
 | `components/notification-service/requirements.txt`                 | Python dependencies for Notification Service (Flask, requests). |
-| `components/data-ingestion-service/app/main.py`                    | Flask app entry point for Data Ingestion Service. Registers ingestion blueprints. |
+| `components/data-ingestion-service/app/main.py`                    | Flask app entry point for Data Ingestion Service. Registers ingestion blueprints. Sets the `werkzeug` logger to WARNING level. |
 | `components/data-ingestion-service/app/config.py`                  | Stores Backend API URL, `DATA_DIR`, and allowed file formats loaded from environment variables. |
 | `components/data-ingestion-service/app/routers/ingestion.py`       | Defines Flask Blueprint with data intake endpoints (`POST /api/ingest/file`, `POST /api/ingest/reading`). Accepts CSV/JSON sensor data. |
 | `components/data-ingestion-service/app/services/data_ingestion.py` | Parses raw CSV sensor data (drop columns, rename, coerce types, drop NaN), saves cleaned output to `sensor_data_cleaned.csv`, and forwards records to the Backend API. Also runnable standalone (`python -m app.services.data_ingestion`). |
@@ -287,7 +287,7 @@ in which case they are relative to the service folder inside `components/`.
 | `components/frontend/css/styles.css`                               | Dashboard styling. |
 | `components/frontend/js/dashboard.js`                              | Dashboard logic. Fetches non-sensitive config from `GET /api/config` on load to stay in sync with `config.yaml`. Polls the Backend API for sensor readings and predictions (colouring anomalous points red) and the Notification Service's `GET /api/alerts` for the alert panel. Renders charts with Chart.js. Displays the ML Analysis panel: severity bar with threshold markers (model boundary at 50%, notification trigger at ~62%), anomaly score with buffer-to-alert indicator, and reference rows for notification threshold and model contamination. |
 | `components/frontend/Dockerfile`                                   | Container definition for the dashboard: nginx serving the static files on port 3000. |
-| `components/frontend/nginx.conf`                                   | nginx server config: listens on 3000, serves `html/`, `css/`, `js/`, and falls back to `dashboard.html`. |
+| `components/frontend/nginx.conf`                                   | nginx server config: listens on 3000, serves `html/`, `css/`, `js/`, and falls back to `dashboard.html`. Access logging is off (`access_log off;`) so routine GET/POST requests do not clutter terminal output — only errors and warnings appear. |
 | `components/sensor/sensor_simulator.py`                            | Simulates an IoT sensor by replaying `validation_data.example.csv` row by row and posting each reading to the Data Ingestion Service via REST. Reads send interval and anomaly rate from `config.yaml`. Applies random jitter to values for diversity and injects ~5% synthetic anomalies (extreme readings) to trigger ML alerts for demo purposes. Loops forever to simulate a continuous sensor stream. |
 | `components/sensor/Dockerfile`                                     | Container definition for the Sensor Simulator. No exposed port — it only makes outgoing requests. |
 | `components/sensor/requirements.txt`                               | Python dependencies for the Sensor Simulator (pandas, requests). |
@@ -493,6 +493,10 @@ how you run the service. No duplication, no sync issues.
   mount it at `/data`; the ingestion pod seeds the raw example file into it
   via the `dataset-seed` init container. Apply order:
   `kubectl apply -f k8s/database/pvc.yaml` first, then the service manifests
+- **Log suppression** — All four Flask services set the `werkzeug` logger to
+  WARNING level in `main.py`; the frontend nginx uses `access_log off;`.
+  Routine 200/201 request logs are suppressed so only errors and startup
+  notices appear in `docker compose logs`
 
 ---
 
@@ -628,6 +632,10 @@ match the neighbouring service.
   `k8s/` manifest folder per service.
 - Environment: `.env` (local), ConfigMap (non-secret), Secret (credentials).
 - Keep generated data and build outputs out of the repository.
+- **Log suppression** — Flask services set the `werkzeug` logger to WARNING
+  level so routine request logs (200, 201) do not clutter terminal output.
+  The frontend nginx disables access logging entirely (`access_log off;`).
+  Only errors, warnings, and startup notices appear in `docker compose logs`.
 
 ### Database schema changes
 - There is no migrations framework. To change a table, update the SQLAlchemy

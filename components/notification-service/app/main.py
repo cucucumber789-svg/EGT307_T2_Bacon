@@ -38,6 +38,9 @@ def send_telegram(message):
 def create_app():
     app = Flask(__name__)
 
+    import logging
+    logging.getLogger("werkzeug").setLevel("WARNING")
+
     @app.after_request
     def allow_dashboard(response):
         # dashboard.js calls this service straight from the browser, on a

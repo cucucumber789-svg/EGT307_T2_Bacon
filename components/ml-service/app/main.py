@@ -18,6 +18,9 @@ from app.services import model_service
 def create_app():
     app = Flask(__name__)
 
+    import logging
+    logging.getLogger("werkzeug").setLevel("WARNING")
+
     # Best-effort initial training: if the cleaned dataset already exists
     # (e.g. produced by the data-ingestion service), be ready immediately.
     # If not, start with ML_MODEL = None; the prediction routes retry

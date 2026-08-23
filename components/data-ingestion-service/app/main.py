@@ -6,6 +6,9 @@ from app.routers.ingestion import ingestion_bp
 def create_app():
     app = Flask(__name__)
 
+    import logging
+    logging.getLogger("werkzeug").setLevel("WARNING")
+
     # No data is cleaned at startup: the service starts "empty" so we can
     # simulate a deployment that begins with no raw data. The cleaned
     # dataset is produced on demand via POST /api/ingest/file, and the ML
