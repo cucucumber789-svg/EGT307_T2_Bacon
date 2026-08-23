@@ -46,5 +46,6 @@ def create_app():
 
 
 if __name__ == "__main__":
+    print("backend-api listening on :5000")
     app = create_app()
     app.run(host="0.0.0.0", port=5000)

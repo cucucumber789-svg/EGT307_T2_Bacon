@@ -27,7 +27,9 @@ def create_app():
     # loading and training on demand instead of the service failing.
     app.config["ML_MODEL"] = model_service.train_if_available(Config.DATASET_PATH)
     if app.config["ML_MODEL"] is None:
-        print(f"No cleaned dataset at {Config.DATASET_PATH} yet - starting idle.")
+        print(f"ml-service listening on :{Config.PORT} — model idle (waiting for data)")
+    else:
+        print(f"ml-service listening on :{Config.PORT} — model ready")
 
     app.register_blueprint(prediction_bp, url_prefix="/api")
 
