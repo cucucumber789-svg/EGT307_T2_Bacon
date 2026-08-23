@@ -33,7 +33,9 @@ services:
         condition: service_started
 
   notification-service:
-    build: ./components/notification-service
+    build:
+      context: .
+      dockerfile: components/notification-service/Dockerfile
     ports:
       - "5002:5002"
     environment:
@@ -44,7 +46,9 @@ services:
         condition: service_healthy
 
   data-ingestion-service:
-    build: ./components/data-ingestion-service
+    build:
+      context: .
+      dockerfile: components/data-ingestion-service/Dockerfile
     ports:
       - "5003:5003"
     environment:
