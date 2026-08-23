@@ -106,7 +106,6 @@ services:
     environment:
       - DATASET_PATH=/data/validation_data.example.csv
       - DATA_INGESTION_URL=http://data-ingestion-service:5003/api/ingest/reading
-      - SEND_INTERVAL_SECONDS=3
     volumes:
       - ./components/database:/data
     depends_on:

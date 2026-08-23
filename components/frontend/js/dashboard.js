@@ -20,7 +20,6 @@ const CONFIG = {
     NOTIFICATION_BASE: "/api",  // proxied to Notification Service via nginx
     POLL_INTERVAL_MS: 8000,                          // how often to refresh the page, in milliseconds
     HISTORY_POINTS: 20,                              // how many past readings to plot on each chart
-    ANOMALY_THRESHOLD: 0.8,                          // score above this colors a point red when predictions lack is_anomaly
     AQ_LABELS: { 1: "Good", 2: "Fair", 3: "Moderate", 4: "Poor", 5: "Hazardous" }, // turns the air_quality number into a word
     NOTIFICATION_THRESHOLD: 0.05,                    // fires Telegram alert when anomaly_score < -this (source: config.yaml)
     MODEL_CONTAMINATION: 0.02,                       // expected anomaly fraction in training data (source: config.yaml)
@@ -117,7 +116,7 @@ function buildAnomalySet(predictions) {
     for (let i = 0; i < predictions.length; i++) {
         const p = predictions[i];
         // Fall back to the score threshold when is_anomaly is missing.
-        const isAnomaly = p.is_anomaly ?? p.anomaly_score >= CONFIG.ANOMALY_THRESHOLD;
+        const isAnomaly = p.is_anomaly ?? p.anomaly_score < -CONFIG.NOTIFICATION_THRESHOLD;
         if (isAnomaly) {
             set.add(p.entry_id);
         }
