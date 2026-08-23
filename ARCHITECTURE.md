@@ -367,18 +367,3 @@ optional alerting, and dashboard display — all without manual intervention.
 Threshold tuning is a config-file change (`config.yaml`), not a code change.
 
 ---
-
-## Open decisions (pending team discussion)
-
-The following items have **not yet been finalised** and are subject to change:
-
-1. **Sensor Data Input Format** — The primary flow is now the Sensor
-   Simulator replaying the CSV dataset as JSON API payloads. CSV uploads and
-   IoT streaming remain possible future inputs.
-
-2. **Live Sensor → Ingestion link** — The sensor simulator posts to
-   `/api/ingest/reading`, which is now implemented in the Data Ingestion
-   Service. Each reading is validated, formatted, and forwarded to the
-   Backend API for storage.
-
----
