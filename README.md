@@ -94,7 +94,48 @@ values are valid. Without Telegram credentials the Notification Service
 still runs and records alerts, but prints `Telegram not configured, skipping
 send` instead of messaging anyone.
 
-#### 3. Stop
+Once all services are running, open the dashboard:
+http://localhost:3000/html/dashboard.html
+
+#### 3. First-run data flow (one time)
+
+Register the dataset, train the ML model, and verify the pipeline:
+
+**Bash:**
+```bash
+# 1. Register the raw dataset (cleans it and forwards rows to the backend)
+curl -X POST http://localhost:5003/api/ingest/file
+
+# 2. Confirm readings are stored
+curl http://localhost:5000/api/sensors?limit=5
+
+# 3. Trigger the ML model (lazy training) and store an anomaly prediction
+curl -X POST http://localhost:5000/api/predict \
+  -H "Content-Type: application/json" \
+  -d '{"temperature":45,"humidity":90,"air_quality":1}'
+
+# 4. Check the config thresholds (should match config.yaml)
+curl http://localhost:5000/api/config
+```
+
+**PowerShell:**
+```powershell
+# 1. Register the raw dataset (cleans it and forwards rows to the backend)
+Invoke-RestMethod -Uri http://localhost:5003/api/ingest/file -Method Post
+
+# 2. Confirm readings are stored
+Invoke-RestMethod -Uri "http://localhost:5000/api/sensors?limit=5"
+
+# 3. Trigger the ML model (lazy training) and store an anomaly prediction
+Invoke-RestMethod -Uri http://localhost:5000/api/predict -Method Post `
+  -ContentType "application/json" `
+  -Body '{"temperature":45,"humidity":90,"air_quality":1}'
+
+# 4. Check the config thresholds (should match config.yaml)
+Invoke-RestMethod -Uri http://localhost:5000/api/config
+```
+
+#### 4. Stop
 
 ```bash
 docker-compose down
@@ -108,58 +149,6 @@ docker-compose down
 | Notification Service   | 5002      | http://localhost:5002                |
 | Data Ingestion Service | 5003      | http://localhost:5003                |
 | Database (PostgreSQL)  | 5432      | `postgresql://user:password@localhost:5432/env_monitor` |
-
-First-run data flow:
-
-**Bash:**
-```bash
-# 1. Register the raw dataset once (cleans it and forwards rows to the backend)
-curl -X POST http://localhost:5003/api/ingest/file
-
-# 2. Confirm readings are stored
-curl http://localhost:5000/api/sensors?limit=5
-
-# 3. Trigger the ML model (lazy training) and store an anomaly prediction
-curl -X POST http://localhost:5000/api/predict \
-  -H "Content-Type: application/json" \
-  -d '{"temperature":45,"humidity":90,"air_quality":1}'
-
-# 4. Check the config thresholds (should match config.yaml)
-curl http://localhost:5000/api/config
-
-# 5. Open the dashboard
-#    http://localhost:3000/html/dashboard.html
-```
-
-**PowerShell:**
-```powershell
-# 1. Register the raw dataset once (cleans it and forwards rows to the backend)
-Invoke-RestMethod -Uri http://localhost:5003/api/ingest/file -Method Post
-
-# 2. Confirm readings are stored
-Invoke-RestMethod -Uri "http://localhost:5000/api/sensors?limit=5"
-
-# 3. Trigger the ML model (lazy training) and store an anomaly prediction
-Invoke-RestMethod -Uri http://localhost:5000/api/predict -Method Post `
-  -ContentType "application/json" `
-  -Body '{"temperature":45,"humidity":90,"air_quality":1}'
-
-# 4. Check the config thresholds (should match config.yaml)
-Invoke-RestMethod -Uri http://localhost:5000/api/config
-
-# 5. Open the dashboard
-Start-Process "http://localhost:3000/html/dashboard.html"
-```
-
-Verify each service is healthy:
-
-```powershell
-Invoke-RestMethod http://localhost:3000/          # Frontend
-Invoke-RestMethod http://localhost:5000/          # Backend API
-Invoke-RestMethod http://localhost:5001/          # ML Service
-Invoke-RestMethod http://localhost:5002/          # Notification Service
-Invoke-RestMethod http://localhost:5003/          # Data Ingestion
-```
 
 ### Option B — Kubernetes
 
