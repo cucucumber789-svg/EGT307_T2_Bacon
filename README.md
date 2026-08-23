@@ -425,7 +425,7 @@ troubleshooting:
 [`components/notification-service/README.md`](./components/notification-service/README.md),
 [`components/frontend/README.md`](./components/frontend/README.md), and the
 system-level design notes in
-[`Architecture.md`](./Architecture.md).
+[`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Issues and limitations
 

@@ -8,7 +8,7 @@
 # Build context is the repo root (not this folder) so it can access both
 # .env and scripts/ via volume mounts.
 #
-# See: Architecture.md — Configuration & Secrets
+# See: ARCHITECTURE.md — Configuration & Secrets
 # =============================================================================
 
 FROM alpine:latest

@@ -3,7 +3,7 @@
 # Each service reads this file at startup via its config.py.
 #
 # Out-of-range values are silently clamped to valid bounds at startup
-# (see Architecture.md — Config error handling).
+# (see ARCHITECTURE.md — Config error handling).
 
 anomaly_score_threshold: 0.05   # notify when score < -threshold (valid: 0.0–0.3; 0.0 = every anomaly, 0.3 = only extreme)
 
