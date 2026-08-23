@@ -43,7 +43,6 @@ const aqUnitEl = document.getElementById("aq-unit");                 // word nex
 const severityFillEl = document.getElementById("severity-fill");     // severity bar fill
 const severityValueEl = document.getElementById("severity-value");   // severity number
 const anomalyScoreEl = document.getElementById("anomaly-score");     // anomaly score number
-const anomalyBufferEl = document.getElementById("anomaly-buffer");   // buffer distance to notification threshold
 const mlStatusTextEl = document.getElementById("ml-status-text");    // "Normal" or "Anomaly" text
 const thresholdMarkerModelEl = document.getElementById("threshold-marker-model");   // model boundary marker on severity bar
 const thresholdMarkerNotifyEl = document.getElementById("threshold-marker-notify"); // notification trigger marker on severity bar
@@ -195,7 +194,6 @@ function updateMLStatus(prediction) {
         severityFillEl.style.width = "0%";
         severityValueEl.textContent = "\u2014";
         anomalyScoreEl.textContent = "\u2014";
-        anomalyBufferEl.textContent = "\u2014";
         mlStatusTextEl.textContent = "\u2014";
         mlStatusTextEl.className = "ml-value";
         return;
@@ -220,16 +218,8 @@ function updateMLStatus(prediction) {
     // Update severity value
     severityValueEl.textContent = severity.toFixed(2);
 
-    // Update anomaly score and buffer to notification threshold
+    // Update anomaly score
     anomalyScoreEl.textContent = score.toFixed(4);
-    const buffer = CONFIG.NOTIFICATION_THRESHOLD - Math.abs(score);
-    if (isAnomaly && buffer <= 0) {
-        anomalyBufferEl.textContent = "ALERT";
-        anomalyBufferEl.className = "ml-hint ml-hint-alert";
-    } else {
-        anomalyBufferEl.textContent = "buffer " + buffer.toFixed(4);
-        anomalyBufferEl.className = "ml-hint";
-    }
 
     // Update status text
     if (isAnomaly) {
