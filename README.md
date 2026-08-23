@@ -149,7 +149,17 @@ docker-compose down
 
 ### Option B — Kubernetes
 
-Create the Telegram credentials Secret (skip if you are not using Telegram):
+#### 1. Start a local cluster (one time)
+
+```bash
+minikube start
+```
+
+#### 2. Create Telegram credentials (one time, optional)
+
+Without Telegram credentials the Notification Service still runs and records
+alerts, but prints `Telegram not configured, skipping send` in logs instead
+of messaging anyone. The dashboard alert panel still works.
 
 ```bash
 kubectl create secret generic telegram-credentials \
@@ -157,8 +167,10 @@ kubectl create secret generic telegram-credentials \
   --from-literal=TELEGRAM_CHAT_ID=<chat-id>
 ```
 
-Apply the manifests. The database PVC must exist first because every service
-that mounts the shared dataset volume depends on it:
+#### 3. Apply manifests
+
+The database PVC must exist first because every service that mounts the
+shared dataset volume depends on it:
 
 ```bash
 kubectl apply -f k8s/database/pvc.yaml
