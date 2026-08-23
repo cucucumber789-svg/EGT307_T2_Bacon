@@ -162,9 +162,7 @@ alerts, but prints `Telegram not configured, skipping send` in logs instead
 of messaging anyone. The dashboard alert panel still works.
 
 ```bash
-kubectl create secret generic telegram-credentials \
-  --from-literal=TELEGRAM_BOT_TOKEN=<token> \
-  --from-literal=TELEGRAM_CHAT_ID=<chat-id>
+kubectl create secret generic telegram-credentials --from-literal=TELEGRAM_BOT_TOKEN=<token> --from-literal=TELEGRAM_CHAT_ID=<chat-id>
 ```
 
 #### 3. Apply manifests
@@ -173,9 +171,7 @@ The database PVC must exist first because every service that mounts the
 shared dataset volume depends on it:
 
 ```bash
-kubectl apply -f k8s/database/pvc.yaml
-kubectl apply -f k8s/backend-api -f k8s/ml-service -f k8s/notification-service \
-              -f k8s/data-ingestion-service -f k8s/frontend
+kubectl apply -f k8s/database/pvc.yaml -f k8s/backend-api -f k8s/ml-service -f k8s/notification-service -f k8s/data-ingestion-service -f k8s/frontend
 ```
 
 ### Option C — run each service standalone
