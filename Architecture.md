@@ -181,25 +181,8 @@ EGT307_T2_Bacon/
 ## File structure guide
 
 This section explains what each file does and how they connect, for developers
-new to this project.
-
-### What is `__init__.py`?
-
-`__init__.py` is a file that marks a folder as a **Python package**, allowing you to
-import modules from it. Without this file, Python treats the folder as a regular
-directory and cannot import from it.
-
-**Example:**
-```python
-# Without __init__.py — this fails:
-from app.models.sensor import SensorReading
-
-# With __init__.py — this works:
-from app.models.sensor import SensorReading
-```
-
-The file can be **empty** (just acts as a marker) or used to expose commonly
-imported items for convenience.
+new to this project. For coding conventions, project structure patterns, and
+development how-to guides, see [`DEVELOPMENT.md`](./DEVELOPMENT.md).
 
 ### How the files connect
 
@@ -285,32 +268,6 @@ in which case they are relative to the service folder inside `components/`.
 | `components/sensor/Dockerfile`                                     | Container definition for the Sensor Simulator. No exposed port — it only makes outgoing requests. |
 | `components/sensor/requirements.txt`                               | Python dependencies for the Sensor Simulator (pandas, requests). |
 | `k8s/*.yaml`                                                          | Kubernetes deployment manifests. Define how each microservice is deployed, exposed, and configured in a cluster. `k8s/database/pvc.yaml` declares the shared dataset volume both ingestion and ML mount. |
-
-### Key concept: blueprints
-
-Blueprints are the routing system used in `routers/`. Each file inside
-`routers/` defines a Flask **Blueprint** — a group of related API endpoints.
-This applies to the services that keep the `app/` split (Backend API, Data
-Ingestion Service, and eventually the ML Service).
-
-- `components/backend-api/app/routers/sensor.py` → Defines `sensor_bp` with sensor routes
-- `components/backend-api/app/routers/prediction.py` → Defines `prediction_bp` with prediction routes
-
-These blueprints are then **registered** onto the Flask app in `main.py`:
-
-```python
-# main.py — imports and registers blueprints
-from app.routers.sensor import sensor_bp
-from app.routers.prediction import prediction_bp
-
-app.register_blueprint(sensor_bp)
-app.register_blueprint(prediction_bp)
-```
-
-This keeps routes organised by feature instead of having everything in one file.
-
-> Note: the Notification Service does **not** use blueprints — it is a
-> single-file app where routes are defined directly in `app/main.py`.
 
 ---
 
@@ -491,138 +448,22 @@ how you run the service. No duplication, no sync issues.
   Routine 200/201 request logs are suppressed so only errors and startup
   notices appear in `docker compose logs`
 
+### Technology choices
+- **Why PySpark was not used** — PySpark was considered for the Backend API
+  but not adopted. The dataset is 51K rows (2.5 MB), and the backend performs
+  only simple OLTP operations: `ORDER BY ... LIMIT 100`, `COUNT(*)`, and
+  single-row INSERTs. PostgreSQL handles this workload natively. Spark's JVM
+  startup overhead alone would exceed all actual compute done by the service.
+  The stub files (`spark_session.py`, `sensor_service.py`) have been removed.
+
 ---
 
-## Development style & conventions
+## Development conventions
 
-How new code in this project should look, structured, and committed. These
-conventions come from the patterns already in the codebase; when in doubt,
-match the neighbouring service.
-
-### Service structure
-- **Backend-style services** (backend-api, ml-service, data-ingestion) use the
-  `app/` split: `main.py` (a `create_app()` factory), `config.py`,
-  `routers/` (Flask blueprints), `services/` (business logic and HTTP
-  clients), and — for the backend — `models/` (SQLAlchemy) and `database.py`.
-- **Small single-purpose services** stay single-file: the notification service
-  defines its routes, threshold logic, and Telegram sending all in
-  `app/main.py`.
-- **Blueprints** are named `name_bp = Blueprint("name", __name__)` and
-  registered in `main.py` with `url_prefix="/api"`.
-
-### Python code style
-- 4-space indentation, `snake_case` names, `"""docstrings"""` for modules and
-  public functions.
-- One idea per function; keep functions small and single-purpose. Prefer plain
-  functions over classes for service logic unless state is genuinely needed.
-
-### Configuration & secrets
-- **Two-tier configuration** — Secrets (bot tokens, database credentials) live
-  in `.env` (gitignored) or a k8s `Secret`. Non-sensitive tuning values
-  (thresholds, ML hyperparameters, simulator intervals) live in `config.yaml`
-  at the repo root (committed). This keeps secrets out of version control
-  while making tuning values visible and reviewable.
-- **`config.yaml`** — Centralised config read by backend-api, ml-service, and
-  sensor-simulator at startup via a `_load_yaml()` helper. Each service
-  searches a few candidate paths (Docker image, standalone relative path,
-  current directory) so the same code works in both environments. In Docker,
-  `config.yaml` is baked into the image at build time (repo root is the build
-  context; each Dockerfile copies both its source and `config.yaml`).
-- **`GET /api/config`** — The Backend API serves non-sensitive config values
-  from `config.yaml` to the frontend dashboard. The dashboard fetches this on
-  page load so threshold displays and severity bar markers stay in sync with
-  the backend without hardcoding values in JavaScript.
-- **Secrets** use empty-string defaults and are injected per environment —
-  `.env` for Compose, a k8s `Secret`, or shell environment variables. Never
-  hardcode a secret in code.
-- **Env validation** — The `env-validator` service (Docker Compose) and
-  `scripts/validate-env.py` (standalone) check that `.env` exists and all
-  required variables are set before any service starts. In Docker, the
-  validator runs as a healthcheck; other services depend on it being healthy.
-  In standalone mode, run `python scripts/validate-env.py` before starting
-  services. This is the **first layer**: it catches placeholder values and
-  missing variables so misconfigured deployments fail fast.
-- **Runtime confirmation** — Each service's startup print confirms the
-  credentials actually reached the process. For example, the notification
-  service prints `Telegram configured` when both `TELEGRAM_BOT_TOKEN` and
-  `TELEGRAM_CHAT_ID` are loaded, or `Telegram not configured` when they
-  are not. This is the **second layer**: the env-validator ensures the
-  `.env` file is correct; the startup prints ensure the values were
-  injected into the container's environment.
-- **Auto-loading `.env`** — Each service calls `load_dotenv()` from
-  `python-dotenv` at startup, so `.env` is automatically loaded into
-  `os.environ` when running standalone. No manual variable exports needed.
-- **Non-secret config in env vars** (service URLs, dataset paths) carries a
-  real default in code, and the same value is set explicitly in
-  `docker-compose.yml` / the k8s ConfigMap so behaviour is identical whether
-  or not the variable is set.
-- Never commit credentials, keys, or generated artifacts (the cleaned dataset
-  is git-ignored for this reason).
-- **Config error handling** — `config.yaml` values are clamped to valid bounds
-  at startup so typos or out-of-range values degrade gracefully instead of
-  crashing or silently misbehaving. Missing keys fall back to hardcoded
-  defaults. Invalid YAML (malformed syntax) causes a startup crash with a
-  clear traceback — this is intentional, as a broken config should not run.
-  The valid ranges are:
-
-  | Value | Valid range | Default | Effect of clamping |
-  |---|---|---|---|
-  | `anomaly_score_threshold` | `0.0`–`0.3` | `0.05` | `0.0` = every anomaly notifies; `0.3` = only extreme anomalies |
-  | `contamination` | `0.0`–`1.0` | `0.02` | Fraction of training data flagged anomalous |
-  | `n_estimators` | `≥ 1` | `200` | Number of IsolationForest trees |
-  | `severity_steepness` | `≥ 0.01` | `10.0` | Sigmoid sharpness; higher = sharper green-to-red transition |
-  | `send_interval_seconds` | `≥ 0.1` | `3` | Delay between sensor readings (seconds) |
-  | `anomaly_rate` | `0.0`–`1.0` | `0.05` | Fraction of synthetic anomalies injected |
-
-  Values outside their range are silently corrected to the nearest bound.
-  This means `anomaly_score_threshold: 0.5` becomes `0.3`, and
-  `contamination: -0.1` becomes `0.0` — no crash, no warning, just
-  safe defaults. The `config.yaml` file includes valid ranges in its
-  comments for operator reference.
-
-### Service entry points
-- Flask services expose `create_app()` and start via
-  `if __name__ == "__main__": app.run(host="0.0.0.0", port=NNNN)`.
-- Browser-facing services enable CORS with an `@app.after_request` handler.
-- Ports are fixed per service; see the Port Assignments table.
-
-### API responses & error handling
-- JSON in, JSON out. Responses use `jsonify(...)`.
-- Errors use `jsonify({"error": "..."})` with the appropriate status code:
-  `400` for validation, `503` when a dependency is not ready (e.g. ML model
-  not trained), and pass-through codes for informative upstream errors.
-- Validate required fields at the top of a route and return a clear
-  "Missing fields" message.
-- Inter-service calls live in `app/services/` HTTP client modules. Use
-  `raise_for_status()`; wrap in `try/except` when the call is best-effort
-  (must never break the caller — e.g. `notification_client`), or pass the
-  `HTTPError` through when the upstream error is useful to the caller (e.g.
-  the ML 503).
-
-### Frontend conventions
-
-See [`DEVELOPMENT.md`](./DEVELOPMENT.md) for frontend development patterns.
-
-### Deployment hygiene
-- One Dockerfile per service; `docker-compose.yml` at the repo root; one
-  `k8s/` manifest folder per service.
-- Environment: `.env` (local), ConfigMap (non-secret), Secret (credentials).
-- Keep generated data and build outputs out of the repository.
-- **Log suppression** — Flask services set the `werkzeug` logger to WARNING
-  level so routine request logs (200, 201) do not clutter terminal output.
-  The frontend nginx disables access logging entirely (`access_log off;`).
-  Only errors, warnings, and startup notices appear in `docker compose logs`.
-
-### Database schema changes
-- There is no migrations framework. To change a table, update the SQLAlchemy
-  model (`app/models/`) **and** `components/database/init.sql` together.
-- `Base.metadata.create_all` only creates missing tables — it does **not**
-  alter existing ones. For a development database, recreate it or apply the
-  change manually.
-
-### Adding a new microservice
-
-See [`DEVELOPMENT.md`](./DEVELOPMENT.md) for the step-by-step guide.
+For coding conventions, service structure patterns, configuration & secrets
+management, API error handling, frontend patterns, database schema changes,
+deployment hygiene, and adding new microservices, see
+[`DEVELOPMENT.md`](./DEVELOPMENT.md).
 
 ---
 
@@ -776,19 +617,6 @@ config.yaml (anomaly_score_threshold: 0.1)
 **Product value:** Threshold tuning is a config-file change, not a code change.
 Operators can adjust the sensitivity vs. noise tradeoff without redeploying
 or rebuilding containers — just edit `config.yaml` and restart affected services.
-
----
-
-## Key development decisions
-
-### Why PySpark was not used
-
-PySpark was considered for the Backend API but not adopted. The dataset is
-51K rows (2.5 MB), and the backend performs only simple OLTP operations:
-`ORDER BY ... LIMIT 100`, `COUNT(*)`, and single-row INSERTs. PostgreSQL
-handles this workload natively. Spark's JVM startup overhead alone would
-exceed all actual compute done by the service. The stub files
-(`spark_session.py`, `sensor_service.py`) have been removed.
 
 ---
 
