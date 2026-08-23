@@ -18,6 +18,7 @@ spec:
         - name: sensor-simulator
           image: sensor-simulator:latest
           imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "until [ -f /data/validation_data.example.csv ]; do sleep 2; done; python sensor_simulator.py"]
           env:
             - name: DATASET_PATH
               value: "/data/validation_data.example.csv"

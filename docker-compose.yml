@@ -26,7 +26,6 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
       - ML_SERVICE_URL=http://ml-service:5001
       - NOTIFICATION_SERVICE_URL=http://notification-service:5002
-      - DATA_INGESTION_SERVICE_URL=http://data-ingestion-service:5003
     depends_on:
       env-validator:
         condition: service_healthy

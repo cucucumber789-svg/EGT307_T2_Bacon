@@ -157,8 +157,7 @@ EGT307_T2_Bacon/
     ├── notification-service/
     │   ├── deployment.yaml
     │   ├── service.yaml            # NodePort 30002 → 5002
-    │   ├── configmap.yaml
-    │   └── secret.example.yaml     # Telegram credentials template (placeholder)
+    │   └── configmap.yaml
     ├── data-ingestion-service/
     │   ├── deployment.yaml
     │   ├── service.yaml

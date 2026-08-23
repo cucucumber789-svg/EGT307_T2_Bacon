@@ -4,4 +4,4 @@ metadata:
   name: frontend-config
 data:
   API_BASE_URL: "http://backend-api/api/"
-  NOTIFICATION_BASE_URL: "http://notification-service:5002"
+  NOTIFICATION_BASE_URL: "http://notification-service"

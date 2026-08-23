@@ -194,8 +194,7 @@ kubectl create secret generic telegram-credentials \
   --from-literal=TELEGRAM_CHAT_ID=<chat-id>
 ```
 
-`k8s/notification-service/secret.example.yaml` is a placeholder template
-showing the expected keys.
+`TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are the expected keys.
 
 ## Usage
 
