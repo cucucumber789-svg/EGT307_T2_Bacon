@@ -48,7 +48,9 @@ class Config:
 
     # IsolationForest hyperparameters (from config.yaml)
     N_ESTIMATORS = int(_ml.get("n_estimators", 200))
+    N_ESTIMATORS = max(1, N_ESTIMATORS)
     CONTAMINATION = float(_ml.get("contamination", 0.02))
+    CONTAMINATION = max(0.0, min(1.0, CONTAMINATION))
     RANDOM_STATE = int(os.environ.get("RANDOM_STATE", "42"))
 
     # Safety-net threshold (from config.yaml)
@@ -56,3 +58,4 @@ class Config:
 
     # Severity sigmoid steepness (from config.yaml)
     SEVERITY_STEEPNESS = float(_ml.get("severity_steepness", 10.0))
+    SEVERITY_STEEPNESS = max(0.01, SEVERITY_STEEPNESS)

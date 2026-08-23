@@ -23,13 +23,4 @@ spec:
           envFrom:
             - configMapRef:
                 name: backend-api-config
-          volumeMounts:
-            - name: config-yaml
-              mountPath: /app/config.yaml
-              subPath: config.yaml
-              readOnly: true
-      volumes:
-        - name: config-yaml
-          configMap:
-            name: app-config
       # TODO: Add resource limits, readiness/liveness probes

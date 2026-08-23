@@ -17,7 +17,9 @@ services:
       retries: 1
 
   backend-api:
-    build: ./components/backend-api
+    build:
+      context: .
+      dockerfile: components/backend-api/Dockerfile
     ports:
       - "5000:5000"
     environment:
@@ -25,8 +27,6 @@ services:
       - ML_SERVICE_URL=http://ml-service:5001
       - NOTIFICATION_SERVICE_URL=http://notification-service:5002
       - DATA_INGESTION_SERVICE_URL=http://data-ingestion-service:5003
-    volumes:
-      - ./config.yaml:/app/config.yaml:ro
     depends_on:
       env-validator:
         condition: service_healthy
@@ -73,14 +73,15 @@ services:
       - ./components/database/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   ml-service:
-    build: ./components/ml-service
+    build:
+      context: .
+      dockerfile: components/ml-service/Dockerfile
     ports:
       - "5001:5001"
     environment:
       - DATASET_PATH=/data/sensor_data_cleaned.csv
     volumes:
       - ./components/database:/data
-      - ./config.yaml:/app/config.yaml:ro
     depends_on:
       env-validator:
         condition: service_healthy
@@ -99,14 +100,15 @@ services:
         condition: service_healthy
 
   sensor-simulator:
-    build: ./components/sensor
+    build:
+      context: .
+      dockerfile: components/sensor/Dockerfile
     environment:
       - DATASET_PATH=/data/validation_data.example.csv
       - DATA_INGESTION_URL=http://data-ingestion-service:5003/api/ingest/reading
       - SEND_INTERVAL_SECONDS=3
     volumes:
       - ./components/database:/data
-      - ./config.yaml:/app/config.yaml:ro
     depends_on:
       data-ingestion-service:
         condition: service_started

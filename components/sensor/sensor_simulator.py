@@ -58,9 +58,11 @@ DATA_INGESTION_URL = os.environ.get(
 SEND_INTERVAL_SECONDS = float(
     os.environ.get("SEND_INTERVAL_SECONDS", str(_sensor.get("send_interval_seconds", 3)))
 )
+SEND_INTERVAL_SECONDS = max(0.1, SEND_INTERVAL_SECONDS)
 
 # Anomaly injection rate: synthetic anomalies injected into the stream
 ANOMALY_RATE = float(os.environ.get("ANOMALY_RATE", str(_sensor.get("anomaly_rate", 0.05))))
+ANOMALY_RATE = max(0.0, min(1.0, ANOMALY_RATE))
 
 # ======================================================
 # Column Names

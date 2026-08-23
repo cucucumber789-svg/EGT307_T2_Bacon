@@ -1,15 +1,18 @@
 # Non-sensitive configuration — safe to commit to git.
 # Secrets (tokens, passwords) stay in .env (gitignored).
 # Each service reads this file at startup via its config.py.
+#
+# Out-of-range values are silently clamped to valid bounds at startup
+# (see Architecture.md — Config error handling).
 
-anomaly_score_threshold: 0.05   # trigger Telegram notification when anomaly_score < -this value
+anomaly_score_threshold: 0.05   # notify when score < -threshold (valid: 0.0–0.3; 0.0 = every anomaly, 0.3 = only extreme)
 
 ml_service:
-  severity_steepness: 10.0
-  contamination: 0.02
-  n_estimators: 200
-  absolute_max_temp: 50.0
+  severity_steepness: 10.0      # sigmoid steepness (valid: >0; higher = sharper green-to-red transition)
+  contamination: 0.02           # fraction of training data flagged anomalous (valid: 0.0–1.0)
+  n_estimators: 200             # number of IsolationForest trees (valid: >0)
+  absolute_max_temp: 50.0       # safety-net: pin severity to 1.0 above this (°C)
 
 sensor_simulator:
-  send_interval_seconds: 3
-  anomaly_rate: 0.05
+  send_interval_seconds: 3      # delay between readings (valid: >0)
+  anomaly_rate: 0.05            # fraction of synthetic anomalies injected (valid: 0.0–1.0)

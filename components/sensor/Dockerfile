@@ -7,10 +7,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY components/sensor/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY components/sensor/ .
+COPY config.yaml /app/config.yaml
 
 # No EXPOSE here - this service only makes outgoing requests, it never
 # accepts incoming connections, so it doesn't need a port.

@@ -172,7 +172,6 @@ EGT307_T2_Bacon/
     │   ├── postgres-secret.yaml    # POSTGRES_USER/PASSWORD/DB (placeholder)
     │   ├── postgres-pvc.yaml       # PostgreSQL data persistence
     │   ├── postgres-configmap.yaml # init.sql (creates tables)
-    │   └── app-config-configmap.yaml # config.yaml shared across services
     └── frontend/
         ├── deployment.yaml
         ├── service.yaml            # NodePort 30080 → 80 → 3000
@@ -242,14 +241,14 @@ in which case they are relative to the service folder inside `components/`.
 
 | File                                                                  | Purpose |
 |-----------------------------------------------------------------------|---------|
-| `config.yaml`                                                         | Centralised non-sensitive configuration — thresholds, ML hyperparameters, simulator tuning. Committed to git. Services read it at startup via `_load_yaml()`; the Backend API also serves it to the frontend via `GET /api/config`. |
+| `config.yaml`                                                         | Centralised non-sensitive configuration — thresholds, ML hyperparameters, simulator tuning. Committed to git. Services read it at startup via `_load_yaml()`; the Backend API also serves it to the frontend via `GET /api/config`. Each value has a valid range documented in the file and clamped at startup (see Config error handling). |
 | `.env.example`                                                        | Template for secrets (Telegram token, database credentials). Committed; `.env` is gitignored. |
-| `docker-compose.yml`                                                  | Defines all services (backend, ML, notification, ingestion, database, frontend, sensor simulator) and how they run together locally. Mounts `config.yaml` as a read-only volume into backend-api, ml-service, and sensor-simulator. One command starts everything. |
+| `docker-compose.yml`                                                  | Defines all services (backend, ML, notification, ingestion, database, frontend, sensor simulator) and how they run together locally. Uses repo root as build context; `config.yaml` is baked into each image. One command starts everything. |
 | `scripts/validate-env.sh`                                             | Shell script for validating `.env`. Used by the `env-validator` Docker container to block startup until all secrets are set. |
 | `scripts/validate-env.py`                                             | Python script for validating `.env` in standalone mode. Loads `.env` into the environment and checks all required variables. |
 | `components/env-validator/Dockerfile`                                 | Minimal alpine container that runs `validate-env.sh` as a healthcheck. Other services depend on it being healthy before starting. |
 | `components/backend-api/app/main.py`                               | Flask app entry point. Creates the app, registers blueprints (routers), and starts the server. Sets the `werkzeug` logger to WARNING level so routine request logs (200, 201) do not clutter terminal output. Prints `backend-api listening on :5000` at startup. |
-| `components/backend-api/app/config.py`                             | Loads secrets from environment variables (`.env`) and non-sensitive tuning values from `config.yaml` via `_load_yaml()`. Exposes `Config` class and raw `_yaml` dict used by the config endpoint. |
+| `components/backend-api/app/config.py`                             | Loads secrets from environment variables (`.env`) and non-sensitive tuning values from `config.yaml` via `_load_yaml()`. Exposes `Config` class and raw `_yaml` dict used by the config endpoint. Clamps `ANOMALY_SCORE_THRESHOLD` to 0.0–0.3. |
 | `components/backend-api/app/database.py`                           | Creates the SQLAlchemy engine and session. Other files import `SessionLocal` to query or insert data into PostgreSQL. |
 | `components/backend-api/app/spark_session.py`                      | Creates and returns a PySpark `SparkSession`. Services import this to run Spark data processing operations. (TBD) |
 | `components/backend-api/app/routers/sensor.py`                     | Defines Flask Blueprint with sensor endpoints (`GET /api/sensors`, `GET /api/sensors/count`, `POST /api/sensors`, `POST /api/sensors/batch`). Receives HTTP requests and queries/inserts directly into the DB. |
@@ -265,7 +264,7 @@ in which case they are relative to the service folder inside `components/`.
 | `components/backend-api/Dockerfile`                                | Tells Docker how to build the backend container — installs dependencies, copies code, runs the app. |
 | `components/backend-api/requirements.txt`                          | Lists all Python packages the project needs (Flask, SQLAlchemy, etc.). |
 | `components/ml-service/app/main.py`                                | Flask app entry point for ML Service. Trains the IsolationForest model at startup when the cleaned dataset exists, otherwise starts idle and reports `model_ready: false`; registers the prediction blueprint. Sets the `werkzeug` logger to WARNING level. Prints model readiness on startup: `ml-service listening on :5001 — model ready` or `...model idle (waiting for data)`. |
-| `components/ml-service/app/config.py`                              | Loads IsolationForest hyperparameters (`n_estimators`, `contamination`), severity steepness, and safety-net threshold (`ABSOLUTE_MAX_TEMP`) from `config.yaml` via `_load_yaml()`. Dataset path and port come from environment variables. |
+| `components/ml-service/app/config.py`                              | Loads IsolationForest hyperparameters (`n_estimators`, `contamination`), severity steepness, and safety-net threshold (`ABSOLUTE_MAX_TEMP`) from `config.yaml` via `_load_yaml()`. Dataset path and port come from environment variables. Clamps `CONTAMINATION` to 0.0–1.0, `N_ESTIMATORS` to ≥1, `SEVERITY_STEEPNESS` to ≥0.01. |
 | `components/ml-service/app/routers/prediction.py`                  | Defines Flask Blueprint with prediction endpoints (`POST /api/predict`, `POST /api/predict/batch`). Retries lazy training on demand and returns 503 with an actionable message when no dataset is available yet. |
 | `components/ml-service/app/services/model_service.py`              | Contains the scikit-learn **IsolationForest** anomaly-detection logic: `load_dataset()` reads the cleaned CSV, `train_model()` fits the forest with the configured `contamination` parameter, `predict()` returns anomaly score (negative = anomaly), severity (sigmoid mapping score to 0–1), and alerts. The `contamination` parameter controls the model's sensitivity — it determines what fraction of training data is considered anomalous, setting the decision boundary. |
 | `components/ml-service/Dockerfile`                                 | Container definition for ML Service. |
@@ -288,7 +287,7 @@ in which case they are relative to the service folder inside `components/`.
 | `components/frontend/js/dashboard.js`                              | Dashboard logic. Fetches non-sensitive config from `GET /api/config` on load to stay in sync with `config.yaml`. Polls the Backend API for sensor readings and predictions (colouring anomalous points red) and the Notification Service's `GET /api/alerts` for the alert panel. Renders charts with Chart.js. Displays the ML Analysis panel: severity bar with threshold markers (model boundary at 50%, notification trigger at ~62%), anomaly score, and reference rows for notification threshold and model contamination. |
 | `components/frontend/Dockerfile`                                   | Container definition for the dashboard: nginx serving the static files on port 3000. |
 | `components/frontend/nginx.conf`                                   | nginx server config: listens on 3000, serves `html/`, `css/`, `js/`, and falls back to `dashboard.html`. Access logging is off (`access_log off;`) so routine GET/POST requests do not clutter terminal output — only errors and warnings appear. |
-| `components/sensor/sensor_simulator.py`                            | Simulates an IoT sensor by replaying `validation_data.example.csv` row by row and posting each reading to the Data Ingestion Service via REST. Reads send interval and anomaly rate from `config.yaml`. Applies random jitter to values for diversity and injects ~5% synthetic anomalies (extreme readings) to trigger ML alerts for demo purposes. Loops forever to simulate a continuous sensor stream. |
+| `components/sensor/sensor_simulator.py`                            | Simulates an IoT sensor by replaying `validation_data.example.csv` row by row and posting each reading to the Data Ingestion Service via REST. Reads send interval and anomaly rate from `config.yaml`. Applies random jitter to values for diversity and injects ~5% synthetic anomalies (extreme readings) to trigger ML alerts for demo purposes. Loops forever to simulate a continuous sensor stream. Clamps `SEND_INTERVAL_SECONDS` to ≥0.1 and `ANOMALY_RATE` to 0.0–1.0. |
 | `components/sensor/Dockerfile`                                     | Container definition for the Sensor Simulator. No exposed port — it only makes outgoing requests. |
 | `components/sensor/requirements.txt`                               | Python dependencies for the Sensor Simulator (pandas, requests). |
 | `k8s/*.yaml`                                                          | Kubernetes deployment manifests. Define how each microservice is deployed, exposed, and configured in a cluster. `k8s/database/pvc.yaml` declares the shared dataset volume both ingestion and ML mount. |
@@ -484,10 +483,11 @@ how you run the service. No duplication, no sync issues.
 - **Shared dataset volume** — `./components/database` is bind-mounted as
   `/data` into both ingestion and ML containers, so the raw file, the cleaned
   output, and the trained model inputs all stay in one place
-- **`config.yaml` volume** — Mounted as read-only into backend-api, ml-service,
-  and sensor-simulator (`./config.yaml:/app/config.yaml:ro`). Changing a
-  threshold in `config.yaml` and restarting the affected containers is enough
-  to retune the system — no rebuild required
+- **`config.yaml` baked into images** — The repo root is the Docker build
+  context; each Dockerfile copies both its source and `config.yaml` into the
+  image. Changing a threshold requires rebuilding the affected image
+  (`docker-compose up --build`). This avoids ConfigMap duplication in k8s
+  and keeps a single source of truth in the repo.
 - **Kubernetes dataset storage** — The same shared folder is represented in
   k8s by the `dataset-pvc` (see `k8s/database/pvc.yaml`). Both deployments
   mount it at `/data`; the ingestion pod seeds the raw example file into it
@@ -531,9 +531,10 @@ match the neighbouring service.
   while making tuning values visible and reviewable.
 - **`config.yaml`** — Centralised config read by backend-api, ml-service, and
   sensor-simulator at startup via a `_load_yaml()` helper. Each service
-  searches a few candidate paths (Docker mount, standalone relative path,
+  searches a few candidate paths (Docker image, standalone relative path,
   current directory) so the same code works in both environments. In Docker,
-  `config.yaml` is mounted as a read-only volume (`./config.yaml:/app/config.yaml:ro`).
+  `config.yaml` is baked into the image at build time (repo root is the build
+  context; each Dockerfile copies both its source and `config.yaml`).
 - **`GET /api/config`** — The Backend API serves non-sensitive config values
   from `config.yaml` to the frontend dashboard. The dashboard fetches this on
   page load so threshold displays and severity bar markers stay in sync with
@@ -564,6 +565,27 @@ match the neighbouring service.
   or not the variable is set.
 - Never commit credentials, keys, or generated artifacts (the cleaned dataset
   is git-ignored for this reason).
+- **Config error handling** — `config.yaml` values are clamped to valid bounds
+  at startup so typos or out-of-range values degrade gracefully instead of
+  crashing or silently misbehaving. Missing keys fall back to hardcoded
+  defaults. Invalid YAML (malformed syntax) causes a startup crash with a
+  clear traceback — this is intentional, as a broken config should not run.
+  The valid ranges are:
+
+  | Value | Valid range | Default | Effect of clamping |
+  |---|---|---|---|
+  | `anomaly_score_threshold` | `0.0`–`0.3` | `0.05` | `0.0` = every anomaly notifies; `0.3` = only extreme anomalies |
+  | `contamination` | `0.0`–`1.0` | `0.02` | Fraction of training data flagged anomalous |
+  | `n_estimators` | `≥ 1` | `200` | Number of IsolationForest trees |
+  | `severity_steepness` | `≥ 0.01` | `10.0` | Sigmoid sharpness; higher = sharper green-to-red transition |
+  | `send_interval_seconds` | `≥ 0.1` | `3` | Delay between sensor readings (seconds) |
+  | `anomaly_rate` | `0.0`–`1.0` | `0.05` | Fraction of synthetic anomalies injected |
+
+  Values outside their range are silently corrected to the nearest bound.
+  This means `anomaly_score_threshold: 0.5` becomes `0.3`, and
+  `contamination: -0.1` becomes `0.0` — no crash, no warning, just
+  safe defaults. The `config.yaml` file includes valid ranges in its
+  comments for operator reference.
 
 ### Service entry points
 - Flask services expose `create_app()` and start via

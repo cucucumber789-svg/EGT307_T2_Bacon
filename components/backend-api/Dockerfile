@@ -7,10 +7,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY components/backend-api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY components/backend-api/ .
+COPY config.yaml /app/config.yaml
 
 EXPOSE 5000
 

@@ -13,7 +13,7 @@ load_dotenv()  # auto-load .env from repo root for standalone mode
 
 
 def _load_yaml():
-    """Load config.yaml — in Docker it's mounted at /app/config.yaml,
+    """Load config.yaml — in Docker it's baked into the image at /app/config.yaml,
     standalone we search upward to the repo root."""
     here = os.path.dirname(os.path.abspath(__file__))
     for candidate in [
@@ -41,4 +41,6 @@ class Config:
     # score is negative for anomalies; we fire when score < -threshold, so only
     # genuinely anomalous readings notify — mild anomalies are stored but do
     # not alert, reducing alert fatigue.
+    # Valid range: 0.0 (every anomaly notifies) to 0.3 (only extreme anomalies).
     ANOMALY_SCORE_THRESHOLD = float(_yaml.get("anomaly_score_threshold", 0.05))
+    ANOMALY_SCORE_THRESHOLD = max(0.0, min(0.3, ANOMALY_SCORE_THRESHOLD))
