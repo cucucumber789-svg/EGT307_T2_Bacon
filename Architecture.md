@@ -595,10 +595,10 @@ match the neighbouring service.
 - **ML Analysis panel** — Displays the latest prediction's severity bar,
   anomaly score, and status. The severity bar has two threshold markers:
   a dark line at 50% (model boundary, `score = 0`) and a red line at ~62%
-  (notification trigger, `score = -threshold`). The anomaly score row shows
-  the buffer distance to the notification threshold (or "ALERT" when exceeded).
-  Below a divider, static rows show "Notify when: `score < -0.05`" and
-  "Model: `contamination 2%`" so operators understand the tuning at a glance.
+  (notification trigger, `score = -threshold`), with a small legend below
+  the bar identifying each line. Below a divider, static rows show
+  "Notify when: `score < -0.05`" and "Model: `contamination 2%`" so
+  operators understand the tuning at a glance.
 - Cache DOM element references once at the top of the script; drive styling
   from `data-*` attributes (`#note[data-state]`) rather than toggling classes.
 - Access the API through small helpers (e.g. `fetchJSON`), `async/await`, and

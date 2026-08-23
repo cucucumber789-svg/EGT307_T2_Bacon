@@ -199,6 +199,40 @@ main {
     background-color: #d6455b;
 }
 
+/* ---------- Severity bar legend ---------- */
+
+.severity-bar-wrap {
+    flex: 1;
+}
+
+.severity-legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 4px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    color: #888;
+}
+
+.legend-line {
+    display: inline-block;
+    width: 12px;
+    height: 2px;
+}
+
+.legend-line-model {
+    background-color: #555;
+}
+
+.legend-line-notify {
+    background-color: #d6455b;
+}
+
 
 /* ---------- Divider and info rows ---------- */
 

@@ -49,10 +49,16 @@
                 <p class="metric-label">ML Analysis</p>
                 <div class="ml-row">
                     <span class="ml-label">Severity</span>
-                    <div class="severity-bar">
-                        <div id="severity-fill" class="severity-fill"></div>
-                        <span id="threshold-marker-model" class="threshold-marker" title="Model boundary (score &lt; 0)"></span>
-                        <span id="threshold-marker-notify" class="threshold-marker threshold-marker-notify" title="Notification trigger"></span>
+                    <div class="severity-bar-wrap">
+                        <div class="severity-bar">
+                            <div id="severity-fill" class="severity-fill"></div>
+                            <span id="threshold-marker-model" class="threshold-marker" title="Model boundary (score &lt; 0)"></span>
+                            <span id="threshold-marker-notify" class="threshold-marker threshold-marker-notify" title="Notification trigger"></span>
+                        </div>
+                        <div class="severity-legend">
+                            <span class="legend-item"><span class="legend-line legend-line-model"></span>model boundary</span>
+                            <span class="legend-item"><span class="legend-line legend-line-notify"></span>notification trigger</span>
+                        </div>
                     </div>
                     <span id="severity-value" class="ml-value">&mdash;</span>
                 </div>
