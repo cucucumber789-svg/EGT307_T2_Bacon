@@ -1,7 +1,6 @@
 Flask
 SQLAlchemy
 psycopg2-binary
-pyspark
 requests
 python-dotenv
 pyyaml

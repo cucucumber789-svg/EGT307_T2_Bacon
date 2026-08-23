@@ -27,7 +27,7 @@ by **Docker** and **Kubernetes**.
                        │              ▼
 ┌─────────────────────┐│     ┌─────────────────────┐
 │   Backend API       │◄┘     │ PostgreSQL DB       │
-│   (Flask + PySpark) │◄──────►                     │
+│   (Flask)          │◄──────►                     │
 └──────────┬──────────┘       └─────────────────────┘
            │ REST/HTTP
            ▼
@@ -60,13 +60,12 @@ EGT307_T2_Bacon/
 ├── components/                 # All services live under this folder
 │   ├── env-validator/             # ENV VALIDATOR — pre-flight env check container
 │   │   └── Dockerfile
-│   ├── backend-api/               # BACKEND API — Flask + PySpark
+│   ├── backend-api/               # BACKEND API — Flask
 │   │   ├── app/
 │   │   │   ├── __init__.py
 │   │   │   ├── main.py            # Flask app entry point (create_app)
 │   │   │   ├── config.py          # Environment-based configuration
 │   │   │   ├── database.py        # SQLAlchemy engine + session
-│   │   │   ├── spark_session.py   # Spark session initialisation (TBD)
 │   │   │   ├── models/
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── sensor.py      # SensorReading SQLAlchemy model
@@ -81,7 +80,6 @@ EGT307_T2_Bacon/
 │   │   │   │   └── config.py      # GET /api/config — serves thresholds to frontend
 │   │   │   └── services/
 │   │   │       ├── __init__.py
-│   │   │       ├── sensor_service.py  # Sensor business logic (TBD)
 │   │   │       ├── ml_client.py       # ML service HTTP client
 │   │   │       ├── notification_client.py  # Notification service HTTP client
 │   │   │       └── prediction_service.py  # Prediction persistence helpers
@@ -212,13 +210,11 @@ service and still uses the full `app/` split:
 components/backend-api/app/main.py  (entry point — starts the app)
   ├── imports config.py          (reads environment variables)
   ├── imports database.py        (connects to PostgreSQL)
-  ├── imports spark_session.py   (creates Spark session)   (TBD)
   └── registers routers/sensor.py      (adds /api/sensors routes)
 
 routers/sensor.py  (handles HTTP requests)
   ├── imports models/sensor.py   (to read/write sensor data in DB)
-  ├── imports schemas/sensor.py  (to validate incoming JSON)   (TBD)
-  └── imports services/sensor_service.py (to process data)     (TBD)
+  └── imports schemas/sensor.py  (to validate incoming JSON)   (TBD)
 
 routers/prediction.py  (handles prediction requests)
   ├── imports services/ml_client.py (to call the ML microservice)
@@ -250,14 +246,12 @@ in which case they are relative to the service folder inside `components/`.
 | `components/backend-api/app/main.py`                               | Flask app entry point. Creates the app, registers blueprints (routers), and starts the server. Sets the `werkzeug` logger to WARNING level so routine request logs (200, 201) do not clutter terminal output. Prints `backend-api listening on :5000` at startup. |
 | `components/backend-api/app/config.py`                             | Loads secrets from environment variables (`.env`) and non-sensitive tuning values from `config.yaml` via `_load_yaml()`. Exposes `Config` class and raw `_yaml` dict used by the config endpoint. Clamps `ANOMALY_SCORE_THRESHOLD` to 0.0–0.3. |
 | `components/backend-api/app/database.py`                           | Creates the SQLAlchemy engine and session. Other files import `SessionLocal` to query or insert data into PostgreSQL. |
-| `components/backend-api/app/spark_session.py`                      | Creates and returns a PySpark `SparkSession`. Services import this to run Spark data processing operations. (TBD) |
 | `components/backend-api/app/routers/sensor.py`                     | Defines Flask Blueprint with sensor endpoints (`GET /api/sensors`, `GET /api/sensors/count`, `POST /api/sensors`, `POST /api/sensors/batch`). Receives HTTP requests and queries/inserts directly into the DB. |
 | `components/backend-api/app/routers/prediction.py`                 | Defines Flask Blueprint with prediction endpoints (`POST /api/predict`, `GET /api/predictions`). Calls the ML service, persists results via `prediction_service.py`, and passes ML errors (e.g. 503 not trained) through to the caller. |
 | `components/backend-api/app/routers/config.py`                     | Defines Flask Blueprint with `GET /api/config` endpoint. Returns non-sensitive thresholds from `config.yaml` (notification threshold, model contamination, severity steepness) so the frontend dashboard stays in sync without hardcoding values. |
 | `components/backend-api/app/models/sensor.py`                      | SQLAlchemy model defining the `sensor_readings` table schema (`SensorReading`). Used by database.py and imported by routes to query/insert data. |
 | `components/backend-api/app/models/prediction.py`                  | SQLAlchemy model defining the `predictions` table schema (`Prediction`). Stores ML anomaly results so they survive ML restarts and are queryable by the dashboard. |
 | `components/backend-api/app/schemas/sensor.py`                     | Request/response schemas for validating JSON payloads and serialising responses. (TBD) |
-| `components/backend-api/app/services/sensor_service.py`            | Business logic for sensor data. May use PySpark for data transformations and aggregations. (TBD) |
 | `components/backend-api/app/services/ml_client.py`                 | HTTP client that sends readings to the ML microservice (`/api/predict`, `/api/predict/batch`) and returns the prediction results. |
 | `components/backend-api/app/services/notification_client.py`       | HTTP client that POSTs anomalous readings to the Notification microservice (`/api/notify`). Best-effort: never raises, so an unavailable notification service cannot break prediction storage. |
 | `components/backend-api/app/services/prediction_service.py`        | Persists a prediction result into the `predictions` table (`store_prediction`) and serialises rows for API responses (`prediction_to_json`). When a stored prediction is an anomaly with `anomaly_score < -ANOMALY_SCORE_THRESHOLD`, it triggers the Notification Service (best-effort). Mild anomalies are stored but do not notify, reducing alert fatigue. |
@@ -324,8 +318,7 @@ This keeps routes organised by feature instead of having everything in one file.
 
 | Component        | Technology             | Justification                                                     |
 |------------------|------------------------|-------------------------------------------------------------------|
-| Backend API      | Flask + PySpark        | Flask for lightweight HTTP; PySpark for large-scale               |
-|                  |                        | sensor data processing (Spark session TBD).                       |
+| Backend API      | Flask                  | Flask for lightweight HTTP; all CRUD via SQLAlchemy + PostgreSQL.  |
 | Config           | PyYAML + config.yaml   | Centralised non-sensitive config (thresholds, tuning) read by     |
 |                  |                        | services at startup; served to frontend via `GET /api/config`.    |
 | Database         | PostgreSQL             | Strong relational support for structured sensor data;             |
@@ -786,19 +779,28 @@ or rebuilding containers — just edit `config.yaml` and restart affected servic
 
 ---
 
+## Key development decisions
+
+### Why PySpark was not used
+
+PySpark was considered for the Backend API but not adopted. The dataset is
+51K rows (2.5 MB), and the backend performs only simple OLTP operations:
+`ORDER BY ... LIMIT 100`, `COUNT(*)`, and single-row INSERTs. PostgreSQL
+handles this workload natively. Spark's JVM startup overhead alone would
+exceed all actual compute done by the service. The stub files
+(`spark_session.py`, `sensor_service.py`) have been removed.
+
+---
+
 ## Open decisions (pending team discussion)
 
 The following items have **not yet been finalised** and are subject to change:
 
-1. **PySpark Usage Scope** — How Spark will be used in the backend is
-   undecided. Options include batch aggregation, preprocessing for ML, or
-   running Spark MLlib models directly. `spark_session.py` is currently a stub.
-
-2. **Sensor Data Input Format** — The primary flow is now the Sensor
+1. **Sensor Data Input Format** — The primary flow is now the Sensor
    Simulator replaying the CSV dataset as JSON API payloads. CSV uploads and
    IoT streaming remain possible future inputs.
 
-3. **Live Sensor → Ingestion link** — The sensor simulator posts to
+2. **Live Sensor → Ingestion link** — The sensor simulator posts to
    `/api/ingest/reading`, which is now implemented in the Data Ingestion
    Service. Each reading is validated, formatted, and forwarded to the
    Backend API for storage.
