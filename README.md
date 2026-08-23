@@ -238,6 +238,32 @@ per-service setup, and the service quick-reference table.
 | [`components/notification-service/README.md`](./components/notification-service/README.md) | Notification Service setup, Telegram configuration, and troubleshooting |
 | [`components/frontend/README.md`](./components/frontend/README.md) | Frontend Dashboard details and nginx proxy setup |
 
+## Troubleshooting
+
+### Telegram notifications not sent (Kubernetes)
+
+Kubernetes silently overwrites secrets when `kubectl apply` is run on a
+directory that contains a Secret manifest. If you ran `kubectl apply -f
+k8s/notification-service` before or during setup, the
+`telegram-credentials` secret may have been overwritten with placeholder
+values.
+
+Check the current secret values:
+
+**PowerShell:**
+```powershell
+kubectl get secret telegram-credentials -o jsonpath='{.data.TELEGRAM_BOT_TOKEN}' | % { [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_)) }
+kubectl get secret telegram-credentials -o jsonpath='{.data.TELEGRAM_CHAT_ID}' | % { [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_)) }
+```
+
+If the output is `REPLACE_ME`, recreate the secret and restart:
+
+**PowerShell:**
+```powershell
+kubectl create secret generic telegram-credentials --from-literal=TELEGRAM_BOT_TOKEN=<token> --from-literal=TELEGRAM_CHAT_ID=<chat-id> --dry-run=client -o yaml | kubectl apply -f -
+kubectl rollout restart deployment notification-service
+```
+
 ## Issues and limitations
 
 - Limited Dataset and Simulation: The system uses a limited, static CSV dataset to simulate IoT sensors, so it may not fully represent real-world sensor behaviour or how the ML model performs on new data.
