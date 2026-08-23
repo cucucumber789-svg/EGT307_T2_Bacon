@@ -71,21 +71,34 @@ No Node.js is required — the frontend is plain static files served by nginx.
 
 ### Option A — full stack with Docker Compose
 
-Create a `.env` file in the repo root (git-ignored) before starting. The
-`env-validator` service runs automatically and blocks startup until all
-values are valid. `config.yaml` (committed) holds non-sensitive tuning
-values — thresholds, ML hyperparameters, simulator intervals — and is
-baked into each image at build time.
+#### 1. Environment setup (one time)
+
+Copy the example environment file and fill in your values:
 
 ```bash
-cp .env.example .env   # then edit with your values
+cp .env.example .env   # then edit with your secrets
+```
+
+`config.yaml` (committed) holds non-sensitive tuning values — thresholds,
+ML hyperparameters, simulator intervals — and is baked into each image at
+build time.
+
+#### 2. Build and start
+
+```bash
 docker-compose up --build
 ```
 
-If any variable is missing or still has a placeholder, startup stops with a
-clear error message. Without Telegram credentials the Notification Service
+The `env-validator` service runs automatically and blocks startup until all
+values are valid. Without Telegram credentials the Notification Service
 still runs and records alerts, but prints `Telegram not configured, skipping
 send` instead of messaging anyone.
+
+#### 3. Stop
+
+```bash
+docker-compose down
+```
 
 | Service                | Host port | URL / connection                     |
 |------------------------|-----------|--------------------------------------|
