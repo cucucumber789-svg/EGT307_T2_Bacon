@@ -193,7 +193,7 @@ shared dataset volume depends on it:
 
 ```bash
 kubectl apply -f k8s/database/pvc.yaml -f k8s/database/postgres-configmap.yaml -f k8s/database/postgres-service.yaml -f k8s/database/postgres-deployment.yaml
-kubectl apply -f k8s/backend-api -f k8s/ml-service -f k8s/notification-service -f k8s/data-ingestion-service -f k8s/frontend
+kubectl apply -f k8s/backend-api -f k8s/ml-service -f k8s/notification-service -f k8s/data-ingestion-service -f k8s/sensor-simulator -f k8s/frontend
 ```
 
 #### 5. Register the dataset (one time)

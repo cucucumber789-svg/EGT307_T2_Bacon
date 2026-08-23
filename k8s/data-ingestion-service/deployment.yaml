@@ -20,7 +20,7 @@ spec:
           # ingestion service has data to clean via POST /api/ingest/file.
           image: dataset-seed:latest
           imagePullPolicy: IfNotPresent
-          command: ["sh", "-c", "[ -f /data/sensor_data.example.csv ] || cp /seed/sensor_data.example.csv /data/"]
+          command: ["sh", "-c", "cp /seed/sensor_data.example.csv /data/ && cp /seed/validation_data.example.csv /data/"]
           volumeMounts:
             - name: dataset
               mountPath: /data
