@@ -223,6 +223,20 @@ operator reference.
   alter existing ones. For a development database, recreate it or apply the
   change manually.
 
+### Local development vs Docker
+
+The `components/database/` folder is the single source of data for both
+environments. Docker's volume mount (`./components/database:/data`) maps
+the host folder to the container, so both environments read and write to the
+same files.
+
+- **Local:** `Config.DATA_DIR` defaults to `../database` (relative path)
+- **Docker:** `DATA_DIR=/data` env var overrides; volume mount makes `/data`
+  equivalent to `./components/database/` on the host
+
+Cleaned output appears in `components/database/` regardless of how you run
+the service.
+
 ---
 
 ## Deployment hygiene
