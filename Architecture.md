@@ -546,7 +546,15 @@ match the neighbouring service.
   required variables are set before any service starts. In Docker, the
   validator runs as a healthcheck; other services depend on it being healthy.
   In standalone mode, run `python scripts/validate-env.py` before starting
-  services.
+  services. This is the **first layer**: it catches placeholder values and
+  missing variables so misconfigured deployments fail fast.
+- **Runtime confirmation** — Each service's startup print confirms the
+  credentials actually reached the process. For example, the notification
+  service prints `Telegram configured` when both `TELEGRAM_BOT_TOKEN` and
+  `TELEGRAM_CHAT_ID` are loaded, or `Telegram not configured` when they
+  are not. This is the **second layer**: the env-validator ensures the
+  `.env` file is correct; the startup prints ensure the values were
+  injected into the container's environment.
 - **Auto-loading `.env`** — Each service calls `load_dotenv()` from
   `python-dotenv` at startup, so `.env` is automatically loaded into
   `os.environ` when running standalone. No manual variable exports needed.
