@@ -97,41 +97,38 @@ send` instead of messaging anyone.
 Once all services are running, open the dashboard:
 http://localhost:3000/html/dashboard.html
 
-#### 3. First-run data flow (one time)
+#### 3. Register the dataset (one time)
 
-Register the dataset, train the ML model, and verify the pipeline:
+The sensor simulator is already running, but the ML model cannot train until
+the cleaned dataset exists. Register it once:
 
 **Bash:**
 ```bash
-# 1. Register the raw dataset (cleans it and forwards rows to the backend)
 curl -X POST http://localhost:5003/api/ingest/file
+```
 
-# 2. Confirm readings are stored
+**PowerShell:**
+```powershell
+Invoke-RestMethod -Uri http://localhost:5003/api/ingest/file -Method Post
+```
+
+#### Optional — verify the pipeline
+
+**Bash:**
+```bash
+# Confirm readings are stored
 curl http://localhost:5000/api/sensors?limit=5
 
-# 3. Trigger the ML model (lazy training) and store an anomaly prediction
-curl -X POST http://localhost:5000/api/predict \
-  -H "Content-Type: application/json" \
-  -d '{"temperature":45,"humidity":90,"air_quality":1}'
-
-# 4. Check the config thresholds (should match config.yaml)
+# Check the config thresholds (should match config.yaml)
 curl http://localhost:5000/api/config
 ```
 
 **PowerShell:**
 ```powershell
-# 1. Register the raw dataset (cleans it and forwards rows to the backend)
-Invoke-RestMethod -Uri http://localhost:5003/api/ingest/file -Method Post
-
-# 2. Confirm readings are stored
+# Confirm readings are stored
 Invoke-RestMethod -Uri "http://localhost:5000/api/sensors?limit=5"
 
-# 3. Trigger the ML model (lazy training) and store an anomaly prediction
-Invoke-RestMethod -Uri http://localhost:5000/api/predict -Method Post `
-  -ContentType "application/json" `
-  -Body '{"temperature":45,"humidity":90,"air_quality":1}'
-
-# 4. Check the config thresholds (should match config.yaml)
+# Check the config thresholds (should match config.yaml)
 Invoke-RestMethod -Uri http://localhost:5000/api/config
 ```
 
