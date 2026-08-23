@@ -192,7 +192,7 @@ The database PVC must exist first because every service that mounts the
 shared dataset volume depends on it:
 
 ```bash
-kubectl apply -f k8s/database/pvc.yaml -f k8s/database/postgres-configmap.yaml -f k8s/database/postgres-service.yaml -f k8s/database/postgres-deployment.yaml
+kubectl apply -f k8s/database/pvc.yaml -f k8s/database/postgres-pvc.yaml -f k8s/database/postgres-configmap.yaml -f k8s/database/postgres-service.yaml -f k8s/database/postgres-secret.yaml -f k8s/database/postgres-deployment.yaml
 kubectl apply -f k8s/backend-api -f k8s/ml-service -f k8s/notification-service -f k8s/data-ingestion-service -f k8s/sensor-simulator -f k8s/frontend
 ```
 
@@ -206,6 +206,22 @@ kubectl exec -n default deployment/data-ingestion-service -- python -c "import r
 
 ```powershell
 minikube service frontend --url
+```
+
+#### 7. Stop
+
+Delete all resources and stop minikube:
+
+```bash
+kubectl delete -f k8s/frontend -f k8s/sensor-simulator -f k8s/data-ingestion-service -f k8s/notification-service -f k8s/ml-service -f k8s/backend-api
+kubectl delete -f k8s/database/postgres-deployment.yaml -f k8s/database/postgres-service.yaml -f k8s/database/postgres-configmap.yaml -f k8s/database/postgres-secret.yaml -f k8s/database/postgres-pvc.yaml -f k8s/database/pvc.yaml
+minikube stop
+```
+
+Optionally delete the minikube cluster entirely:
+
+```bash
+minikube delete --all --purge
 ```
 
 ### Option C — run each service standalone
