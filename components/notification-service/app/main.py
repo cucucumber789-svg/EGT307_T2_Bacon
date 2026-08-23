@@ -93,6 +93,6 @@ if __name__ == "__main__":
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("Telegram not configured - alerts will not be sent. See README 'First-time setup'.")
     else:
-        print(f"Telegram configured: chat_id={TELEGRAM_CHAT_ID}")
+        print("Telegram configured")
     app = create_app()
     app.run(host="0.0.0.0", port=5002)
