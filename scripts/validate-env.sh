@@ -55,6 +55,25 @@ check_var() {
     fi
 }
 
+check_optional_telegram() {
+    token=$(grep -E "^TELEGRAM_BOT_TOKEN=" "$ENV_FILE" | cut -d'=' -f2- | sed 's/#.*//' | xargs)
+    chat_id=$(grep -E "^TELEGRAM_CHAT_ID=" "$ENV_FILE" | cut -d'=' -f2- | sed 's/#.*//' | xargs)
+
+    [ "$token" = "your_token_here" ] && token=""
+    [ "$chat_id" = "your_chat_id_here" ] && chat_id=""
+
+    if [ -z "$token" ] && [ -z "$chat_id" ]; then
+        echo "${YELLOW}  [WARN] Telegram is not configured; Telegram alerts are disabled.${NC}"
+        echo "         Setup: components/notification-service/README.md#telegram-setup"
+    elif [ -z "$token" ] || [ -z "$chat_id" ]; then
+        echo "${RED}  [FAIL] Telegram configuration is incomplete; set both credentials or leave both empty.${NC}"
+        echo "         ${YELLOW}Setup: components/notification-service/README.md#telegram-setup${NC}"
+        errors=$((errors + 1))
+    else
+        echo "${GREEN}  [ OK ] Telegram credentials are set${NC}"
+    fi
+}
+
 # ---------------------------------------------------------------------------
 # 1. Check that .env exists — if not, tell the user how to create it
 # ---------------------------------------------------------------------------
@@ -84,20 +103,7 @@ check_var "POSTGRES_PASSWORD" "" \
 check_var "POSTGRES_DB" "" \
     "Local dev default -- only change if you customised the database service."
 
-check_var "TELEGRAM_BOT_TOKEN" "your_token_here" \
-"Obtained from @BotFather on Telegram:
-  1. Open Telegram and message @BotFather
-  2. Send /newbot and follow the prompts
-  3. Copy the token it gives you (format: 123456789:AA...)
-  Full guide: components/notification-service/README.md"
-
-check_var "TELEGRAM_CHAT_ID" "your_chat_id_here" \
-"The chat or group where alerts are sent:
-  1. Message your bot once (any text) so it can reach you
-  2. Run: curl \"https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates\"
-  3. Look for \"chat\":{\"id\": <number>} in the response
-  For groups the id is negative (e.g. -1001234567890)
-  Full guide: components/notification-service/README.md"
+check_optional_telegram
 
 # ---------------------------------------------------------------------------
 # 3. Summary

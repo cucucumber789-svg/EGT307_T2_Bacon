@@ -1,0 +1,4 @@
+# Apply this rule to every shell script (*.sh).
+# "text" enables Git's text normalization; "eol=lf" checks files out with
+# Unix LF line endings on every OS so Linux containers can execute them.
+*.sh text eol=lf

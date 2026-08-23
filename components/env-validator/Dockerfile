@@ -5,8 +5,8 @@
 # services in docker-compose.yml depend on it being healthy, so they will
 # not start until the environment is validated.
 #
-# Build context is the repo root (not this folder) so it can access both
-# .env and scripts/ via volume mounts.
+# Build context is the repo root (not this folder) so the validation script
+# can be copied into the image. The .env file is mounted at runtime.
 #
 # See: ARCHITECTURE.md — Configuration & Secrets
 # =============================================================================
@@ -17,6 +17,7 @@ FROM alpine:latest
 RUN apk add --no-cache bash
 
 COPY scripts/validate-env.sh /app/scripts/validate-env.sh
-RUN chmod +x /app/scripts/validate-env.sh
+RUN sed -i 's/\r$//' /app/scripts/validate-env.sh \
+    && chmod +x /app/scripts/validate-env.sh
 
 CMD ["tail", "-f", "/dev/null"]

@@ -18,6 +18,12 @@ load_dotenv()  # auto-load .env from repo root for standalone mode
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
+# Treat values copied from older .env.example files as unconfigured.
+if TELEGRAM_BOT_TOKEN == "your_token_here":
+    TELEGRAM_BOT_TOKEN = ""
+if TELEGRAM_CHAT_ID == "your_chat_id_here":
+    TELEGRAM_CHAT_ID = ""
+
 # Alerts are kept here in memory so the dashboard can GET /api/alerts and
 # show them; simple on purpose, resets if the service restarts.
 recent_alerts = []
