@@ -67,6 +67,33 @@ def check_var(name, placeholder="", hint=""):
     return 0
 
 
+def check_optional_telegram():
+    """Validate Telegram credentials when Telegram alerts are configured."""
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+
+    if token == "your_token_here":
+        token = ""
+    if chat_id == "your_chat_id_here":
+        chat_id = ""
+
+    setup = "Setup: components/notification-service/README.md#telegram-setup"
+    if not token and not chat_id:
+        print(f"  {YELLOW}[WARN]{NC} Telegram is not configured; Telegram alerts are disabled.")
+        print(f"         {setup}")
+        return 0
+    if not token or not chat_id:
+        print(
+            f"  {RED}[FAIL]{NC} Telegram configuration is incomplete; "
+            "set both credentials or leave both empty."
+        )
+        print(f"         {YELLOW}{setup}{NC}")
+        return 1
+
+    print(f"  {GREEN}[ OK ]{NC} Telegram credentials are set")
+    return 0
+
+
 def find_env_file():
     """Locate the .env file relative to this script's directory.
 
@@ -106,6 +133,7 @@ def main():
     errors = 0
     for var_name, placeholder, hint in REQUIRED_VARS:
         errors += check_var(var_name, placeholder, hint)
+    errors += check_optional_telegram()
 
     # ------------------------------------------------------------------
     # 4. Summary
