@@ -6,10 +6,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY components/notification-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY components/notification-service/ .
+COPY config.yaml /app/config.yaml
 
 EXPOSE 5002
 

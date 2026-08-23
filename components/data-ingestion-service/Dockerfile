@@ -5,10 +5,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY components/data-ingestion-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY components/data-ingestion-service/ .
+COPY config.yaml /app/config.yaml
 
 EXPOSE 5003
 

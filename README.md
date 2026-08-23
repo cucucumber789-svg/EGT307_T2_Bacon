@@ -155,23 +155,57 @@ docker-compose down
 minikube start
 ```
 
-#### 2. Create Telegram credentials (one time, optional)
+#### 2. Build images inside minikube
 
-Without Telegram credentials the Notification Service still runs and records
-alerts, but prints `Telegram not configured, skipping send` in logs instead
-of messaging anyone. The dashboard alert panel still works.
+Minikube has its own Docker daemon — images built with your local Docker are
+not visible to minikube. Point your shell to minikube's Docker, build all
+images, then point back:
+
+```bash
+& minikube docker-env --shell powershell | Invoke-Expression
+docker build -t backend-api:latest -f components/backend-api/Dockerfile .
+docker build -t ml-service:latest -f components/ml-service/Dockerfile .
+docker build -t notification-service:latest -f components/notification-service/Dockerfile .
+docker build -t data-ingestion-service:latest -f components/data-ingestion-service/Dockerfile .
+docker build -t sensor-simulator:latest -f components/sensor/Dockerfile .
+docker build -t frontend:latest -f components/frontend/Dockerfile components/frontend
+docker build -t dataset-seed:latest -f components/database/Dockerfile components/database
+```
+
+#### 3. Create secrets (one time)
+
+Telegram is optional — without it the Notification Service still runs and
+records alerts, but prints `Telegram not configured, skipping send` in logs
+instead of messaging anyone. The dashboard alert panel still works.
+
+Fill in the postgres secret (`k8s/database/postgres-secret.yaml`) with your
+values, then apply:
 
 ```bash
 kubectl create secret generic telegram-credentials --from-literal=TELEGRAM_BOT_TOKEN=<token> --from-literal=TELEGRAM_CHAT_ID=<chat-id>
+kubectl apply -f k8s/database/postgres-secret.yaml
 ```
 
-#### 3. Apply manifests
+#### 4. Apply manifests
 
 The database PVC must exist first because every service that mounts the
 shared dataset volume depends on it:
 
 ```bash
-kubectl apply -f k8s/database/pvc.yaml -f k8s/backend-api -f k8s/ml-service -f k8s/notification-service -f k8s/data-ingestion-service -f k8s/frontend
+kubectl apply -f k8s/database/pvc.yaml -f k8s/database/postgres-configmap.yaml -f k8s/database/postgres-service.yaml -f k8s/database/postgres-deployment.yaml
+kubectl apply -f k8s/backend-api -f k8s/ml-service -f k8s/notification-service -f k8s/data-ingestion-service -f k8s/frontend
+```
+
+#### 5. Register the dataset (one time)
+
+```powershell
+kubectl exec -n default deployment/data-ingestion-service -- python -c "import requests; r = requests.post('http://localhost:5003/api/ingest/file'); print(r.status_code, r.text)"
+```
+
+#### 6. Open the dashboard
+
+```powershell
+minikube service frontend --url
 ```
 
 ### Option C — run each service standalone
