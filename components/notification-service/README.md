@@ -5,8 +5,9 @@ conditions, and keeps the most recent alerts in memory for the dashboard.
 
 ## How it fits in
 
-- The **Backend API** calls `POST /api/notify` whenever the ML model flags a
-  sensor reading as anomalous (`store_prediction` in
+- The **Backend API** calls `POST /api/notify` only when a prediction has
+  `is_anomaly: true` and its score is below the configured negative
+  notification threshold (`store_prediction` in
   `components/backend-api/app/services/prediction_service.py`).
 - The service sends a Telegram message for each alert and records it in an
   in-memory list.

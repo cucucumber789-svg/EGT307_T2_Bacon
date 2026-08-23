@@ -89,10 +89,11 @@ build time.
 docker-compose up --build
 ```
 
-The `env-validator` service runs automatically and blocks startup until all
-values are valid. Without Telegram credentials the Notification Service
-still runs and records alerts, but prints `Telegram not configured, skipping
-send` instead of messaging anyone.
+The `env-validator` service checks that `.env` exists, the three PostgreSQL
+variables are non-empty, and Telegram credentials are either both configured
+or both empty. It does not validate credential correctness or dependency
+connectivity. Without Telegram credentials the Notification Service still
+runs and records alerts, but skips Telegram delivery.
 
 Once all services are running, open the dashboard:
 http://localhost:3000/html/dashboard.html

@@ -26,8 +26,9 @@ routers/prediction.py  (handles prediction requests)
 ```
 
 The Notification Service takes a simpler shape: it is a **single-file app** —
-`app/main.py` contains the Flask routes, the threshold checks, and the
-Telegram sending logic all in one place. The Data Ingestion Service keeps the
+`app/main.py` contains the Flask routes, recent alert history, and Telegram
+sending logic all in one place. The Backend API applies the notification
+threshold before calling it. The Data Ingestion Service keeps the
 `app/` split but is smaller than the Backend API. The ML Service uses the same
 `app/` split: `main.py` trains the IsolationForest model at startup when the
 cleaned dataset is available (or starts idle otherwise), and
@@ -87,8 +88,8 @@ This keeps routes organised by feature instead of having everything in one file.
   `routers/` (Flask blueprints), `services/` (business logic and HTTP
   clients), and — for the backend — `models/` (SQLAlchemy) and `database.py`.
 - **Small single-purpose services** stay single-file: the notification service
-  defines its routes, threshold logic, and Telegram sending all in
-  `app/main.py`.
+  defines its routes, recent alert history, and Telegram sending in
+  `app/main.py`. Notification threshold logic remains in the Backend API.
 - **Blueprints** are named `name_bp = Blueprint("name", __name__)` and
   registered in `main.py` with `url_prefix="/api"`.
 
@@ -162,12 +163,11 @@ secret in code.
 ### Env validation
 
 The `env-validator` service (Docker Compose) and `scripts/validate-env.py`
-(standalone) check that `.env` exists and all required variables are set
-before any service starts. In Docker, the validator runs as a healthcheck;
-other services depend on it being healthy. In standalone mode, run
-`python scripts/validate-env.py` before starting services. This is the
-**first layer**: it catches placeholder values and missing variables so
-misconfigured deployments fail fast.
+(standalone) check that `.env` exists, the three PostgreSQL variables are
+non-empty, and Telegram credentials are either both configured or both empty.
+They do not validate credential correctness or dependency connectivity. In
+Docker, the validator runs as a healthcheck and gates dependent services. In
+standalone mode, run `python scripts/validate-env.py` before starting services.
 
 ### Runtime confirmation
 
@@ -287,9 +287,8 @@ the service.
   the static files on port 3000. Compose wires it in as the `frontend`
   service; `k8s/frontend/` holds the deployment and the NodePort service
   (30080). The nginx container proxies `/api/*` to the Backend API and
-  Notification Service, so the browser only talks to one origin. The
-  frontend has no `depends_on` (it is not a microservice, just a static-file
-  server with a proxy).
+  Notification Service, so the browser only talks to one origin. In Compose,
+  the frontend depends on a healthy `env-validator` before it starts.
 
 ---
 

@@ -249,17 +249,20 @@ EGT307_T2_Bacon/
   `severity = 1 / (1 + exp(steepness * score))`. Score `0.0` (boundary) →
   `0.50` (50% bar); score `-0.05` (notification threshold) → `0.62` (62% bar).
   Steepness configurable in `config.yaml`
-- **Safety-net** — Hardcoded `ABSOLUTE_MAX_TEMP = 50°C` pins severity to 1.0
-  for physically dangerous values
+- **Temperature safety-net:** `absolute_max_temp` in `config.yaml` adds a
+  critical alert and pins severity to 1.0 when temperature exceeds the
+  configured value
 
 ### Notifications
-- **Backend triggers on ML anomalies** — Notification service is called only
-  when the model flags a reading. One notification per anomalous reading —
-  rare events in an early-warning system must not be delayed or coalesced
-- **ML model is the single source of truth** — Alerting decisions driven
-  entirely by IsolationForest score. Notification service is a pure sender
-- **Two-tier filtering reduces alert fatigue** — `score < 0` = anomaly;
-  `score < -threshold` = Telegram notification. Tunable in `config.yaml`
+- **Two anomaly sources:** `is_anomaly` becomes true when IsolationForest
+  flags the reading or the configured temperature safety-net adds a critical
+  alert
+- **Backend applies the notification gate:** Notification service is called
+  only when `is_anomaly` is true and `score < -threshold`. A safety-net alert
+  whose model score does not cross the threshold is stored but not sent
+- **One send per alert string:** The Backend makes one Notification request
+  per qualifying prediction. The Notification service attempts one Telegram
+  message for each alert string in that request
 - **Dashboard only reads alerts** — `GET /api/alerts` drives the alert panel;
   the dashboard never POSTs `/api/notify`, so polling cannot spam Telegram
 - **Credentials are secrets** — Bot token and chat ID in `.env` (Compose) or
@@ -302,7 +305,7 @@ deployment hygiene, and adding new microservices, see
 | Backend API      | PostgreSQL           | SQL       | Data persistence & retrieval                                       |
 | Backend API      | ML Service           | REST/HTTP | Anomaly prediction requests (`/api/predict`, `/api/predict/batch`) |
 | ML Service       | Backend API          | REST/HTTP | Prediction results returned (score, severity, alerts)              |
-| Backend API      | Notification Service | REST/HTTP | Triggers `/api/notify` on ML-flagged anomalies                     |
+| Backend API      | Notification Service | REST/HTTP | Triggers `/api/notify` for threshold-qualified anomalies           |
 
 ---
 
@@ -356,12 +359,12 @@ Sensor Simulator
   │  POST /api/ingest/reading
   ▼
 Data Ingestion Service
-  │  validates → POST /api/sensors → Backend API → PostgreSQL
+  │  validates → POST /api/sensors/batch → Backend API → PostgreSQL
   ▼
 Backend API
-  │  POST /api/predict → ML Service (anomaly scoring)
+  │  POST /api/predict/batch → ML Service (anomaly scoring)
   │  stores prediction in PostgreSQL
-  │  if score < -threshold:
+  │  if is_anomaly and score < -threshold:
   │    POST /api/notify → Notification Service → Telegram
   ▼
 Frontend Dashboard (targets a 2s polling cadence)
