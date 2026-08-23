@@ -100,7 +100,13 @@ http://localhost:3000/html/dashboard.html
 #### 3. Register the dataset (one time)
 
 The sensor simulator is already running, but the ML model cannot train until
-the cleaned dataset exists. Register it once:
+the cleaned dataset exists. The simulator sends the validation dataset one row
+at a time. After the final row, it returns to the first row and continues until
+the service stops. Entry IDs continue increasing and timestamps are
+regenerated. Normal readings receive random jitter, while the configured
+anomaly rate may replace rows with synthetic anomalies.
+
+Register the cleaned dataset once:
 
 **Bash:**
 ```bash
@@ -266,6 +272,10 @@ kubectl rollout restart deployment notification-service
 
 ## Issues and limitations
 
-- Limited Dataset and Simulation: The system uses a limited, static CSV dataset to simulate IoT sensors, so it may not fully represent real-world sensor behaviour or how the ML model performs on new data.
+- Limited Dataset and Simulation: The simulator loops through the same static
+  CSV dataset indefinitely. It assigns new IDs and timestamps, adds random
+  jitter, and can inject synthetic anomalies, but the source observations
+  still repeat. This may not represent real sensor behaviour or model
+  performance on new data.
 
 - Alert Threshold: The notification threshold buffer (`anomaly_score_threshold` in `config.yaml`) is a design choice — tuning it controls the tradeoff between alert sensitivity and noise. Too low and mild anomalies trigger Telegram; too high and genuine anomalies are missed.

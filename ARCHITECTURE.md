@@ -224,6 +224,16 @@ EGT307_T2_Bacon/
   (in-memory model), so results are stored in the `predictions` table by the
   Backend API and served to the dashboard via `GET /api/predictions`
 
+### Sensor simulation
+- **Continuous dataset replay:** The simulator sends each row from the
+  configured dataset (`validation_data.example.csv` by default) in order and
+  at the configured interval. After the final row, it starts again from the
+  first row and continues until the service stops
+- **Distinct readings across passes:** The `entry_id` counter does not reset.
+  Each reading receives the current timestamp. Normal replayed rows receive
+  random value jitter, while `anomaly_rate` can replace a row with a synthetic
+  anomaly
+
 ### ML model & scoring
 - **Isolation Forest** — Unsupervised anomaly detection: anomalies are few
   and different from normal points. 200 decision trees isolate anomalies in
