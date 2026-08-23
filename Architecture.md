@@ -596,7 +596,8 @@ match the neighbouring service.
   anomaly score, and status. The severity bar has two threshold markers:
   a dark line at 50% (model boundary, `score = 0`) and a red line at ~62%
   (notification trigger, `score = -threshold`), with a small legend below
-  the bar identifying each line. Below a divider, static rows show
+  the bar identifying each line: "model boundary (anomaly)" and
+  "notification trigger (alert)". Below a divider, static rows show
   "Notify when: `score < -0.05`" and "Model: `contamination 2%`" so
   operators understand the tuning at a glance.
 - Cache DOM element references once at the top of the script; drive styling
